@@ -1049,6 +1049,28 @@ if __name__ == '__main__':
 
 ### 設定ファイル（config.yaml）の例
 
+.envファイルから読み込む
+
+```bash
+# .env ファイル
+FLASK_HOST=0.0.0.0
+FLASK_PORT=5000
+FLASK_DEBUG=False
+
+SLIDESHOW_INTERVAL=5000  # 表示間隔（ミリ秒）
+SLIDESHOW_TIMEOUT=60      # 無操作時間（秒）
+PHOTOS_DIRECTORY="/home/pi/photos"
+
+CAMERA_RESOLUTION="1920x1080"
+
+SAMBA_USER="pi"
+SAMBA_PASSWORD="your_strong_password"
+
+ENVIRONMENT="production"
+```
+
+
+
 ```yaml
 # config.yaml
 slideshow:
