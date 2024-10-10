@@ -1,0 +1,12 @@
+# requirements.txt
+Flask==2.1.1
+Flask-HTTPAuth==4.7.0
+SpeechRecognition==3.8.1
+opencv-python==4.5.5.64
+Pillow==9.2.0
+PyYAML==6.0
+python-dotenv==0.21.0
+picamera==1.13
+pygame==2.1.2
+
+#pip install -r requirements.txtで実行
