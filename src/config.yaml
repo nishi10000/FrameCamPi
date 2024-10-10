@@ -1,1 +1,19 @@
 # config.yaml: プロジェクト全体で使用される設定値を管理する設定ファイル
+slideshow:
+  interval: ${SLIDESHOW_INTERVAL}  # 表示間隔（ミリ秒）
+  timeout: ${SLIDESHOW_TIMEOUT}    # 無操作時間（秒）
+  photos_directory: ${PHOTOS_DIRECTORY}  # フォトディレクトリのパス
+
+camera:
+  resolution: ${CAMERA_RESOLUTION}
+
+samba:
+  user: ${SAMBA_USER}
+  password: ${SAMBA_PASSWORD}
+
+flask:
+  host: ${FLASK_HOST}
+  port: ${FLASK_PORT}
+  debug: ${FLASK_DEBUG}
+
+environment: ${ENVIRONMENT}
