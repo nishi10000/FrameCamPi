@@ -96,6 +96,69 @@ flowchart TD
 - Git: バージョン管理。
 - systemd: サービス管理および自動起動。
 
+##### クラス図
+
+```mermaid
+classDiagram
+    class Main {
+        +main()
+        +command_listener(config)
+        +monitor_activity(config)
+    }
+
+    class PhotoFrame {
+        +__init__(photo_directory, interval)
+        +load_photos()
+        +show_photo()
+    }
+
+    class Utils {
+        +load_config(config_path)
+    }
+
+    class PhotoCapture {
+        +capture_photo(photo_directory)
+    }
+
+    class VoiceCommands {
+        +listen_for_commands()
+        +process_command(command, config)
+    }
+
+    class SmileDetection {
+        +detect_smile_and_capture(camera_index, save_path)
+        +countdown(seconds)
+    }
+
+    class WebApp {
+        +Flask()
+        +dashboard()
+        +upload_photo()
+        +download_photo(filename)
+        +verify_password(username, password)
+    }
+
+    class Config {
+        +load_config()
+        +save_config()
+    }
+
+    Main --> Utils : uses
+    Main --> Config : loads configuration
+    Main --> PhotoFrame : initializes
+    Main --> VoiceCommands : manages
+    Main --> SmileDetection : manages
+    Main --> WebApp : starts
+
+    PhotoFrame --> Pillow : processes images
+    PhotoCapture --> picamera : captures images
+    SmileDetection --> OpenCV : detects smiles
+    VoiceCommands --> speech_recognition : recognizes
+    WebApp --> Flask : framework
+    WebApp --> HTTPAuth : provides authentication
+```
+
+
 ## 3. 詳細設計
 
 ### 3.1 フォトフレーム機能
