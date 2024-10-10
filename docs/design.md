@@ -21,7 +21,51 @@
 
 図1: システム全体のブロック図
 
-(ここにシステム構成図を挿入)
+```mermaid
+flowchart TD
+    %% ハードウェア構成
+    subgraph hardware["ハードウェア構成"]
+        RaspberryPi["Raspberry Pi 4"]
+        Camera["Raspberry Pi Camera Module V2"] --- RaspberryPi
+        Display["ディスプレイ（HDMI接続）"] --- RaspberryPi
+        Microphone["マイク"] --- RaspberryPi
+        WiFi["内蔵Wi-Fi"] --- RaspberryPi
+    end
+
+    %% ソフトウェア構成
+    subgraph software["ソフトウェア構成"]
+        RaspberryPiOS["Raspberry Pi OS"] --> Python["Python 3.x"]
+        Python --> OpenCV["OpenCV"]
+        Python --> SpeechRecognition["SpeechRecognition"]
+        Python --> Flask["Flask"]
+        Python --> Samba["Samba"]
+        Flask --> HTTPAuth["Flask-HTTPAuth"]
+        Python --> Pillow["Pillow"]
+    end
+    
+    %% ツール構成
+    subgraph tools["ツール"]
+        Git["Git"] --> Systemd["systemd"]
+        Systemd -.-> Python
+    end
+    
+    %% 機能モード
+    subgraph modes["機能モード"]
+        PhotoFrameMode["フォトフレームモード"] -.-> Flask
+        PhotoCaptureMode["写真撮影モード"] -.-> Flask
+        NAS["NAS機能"] -.-> Samba
+    end
+    
+    %% ハードウェアとソフトウェアの接続
+    RaspberryPi -->|制御| hardware
+    RaspberryPi -->|システム管理| software
+    RaspberryPi -->|バージョン管理| tools
+    WiFi -->|ネットワーク接続| NAS
+    
+    %% ソフトウェアと機能モードの接続
+    Flask -->|機能切り替え| modes
+```
+
 
 ### 2.2 コンポーネント説明
 
