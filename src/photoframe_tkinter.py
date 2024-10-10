@@ -1,0 +1,1 @@
+# photoframe_tkinter.py: Tkinterを使用してフォトフレーム表示機能を提供するモジュール
