@@ -700,7 +700,8 @@ if __name__ == "__main__":
 │   ├── photo_capture.py    # 写真撮影モジュール
 │   ├── voice_commands.py   # 音声認識モジュール
 │   ├── smile_detection.py  # 笑顔検出モジュール
-│   └── config.yaml         # 設定ファイル
+│   ├── config.yaml         # 設定ファイル
+│   
 ├── docs/                   # ドキュメント用のディレクトリ
 │   ├── requirements.md     # 要件定義書
 │   ├── design.md           # 設計書
@@ -710,6 +711,9 @@ if __name__ == "__main__":
 ├── photos/                 # 撮影写真の保存ディレクトリ
 ├── templates/              # ウェブテンプレート
 │   └── dashboard.html      # ダッシュボードページ
+├── requirements.txt        # Pythonの依存ライブラリを管理するファイル
+└── .env                    # プロジェクト全体の環境変数を管理するファイル
+
 ```
 
 ### 4.2 ファイル管理
@@ -1027,7 +1031,8 @@ if __name__ == '__main__':
 │   ├── photo_capture.py    # 写真撮影モジュール
 │   ├── voice_commands.py   # 音声認識モジュール
 │   ├── smile_detection.py  # 笑顔検出モジュール
-│   └── config.yaml         # 設定ファイル
+│   ├── config.yaml         # 設定ファイル
+│   
 ├── docs/                   # ドキュメント用のディレクトリ
 │   ├── requirements.md     # 要件定義書
 │   ├── design.md           # 設計書
@@ -1037,31 +1042,34 @@ if __name__ == '__main__':
 ├── photos/                 # 撮影写真の保存ディレクトリ
 ├── templates/              # ウェブテンプレート
 │   └── dashboard.html      # ダッシュボードページ
+├── requirements.txt        # Pythonの依存ライブラリを管理するファイル
+└── .env                    # プロジェクト全体の環境変数を管理するファイル
+
 ```
 
 ### 設定ファイル（config.yaml）の例
 
 ```yaml
-# スライドショー設定
+# config.yaml
 slideshow:
-  interval: 5000  # 表示間隔（ミリ秒）
-  timeout: 60  # 無操作時間（秒）
-  photos_directory: "/home/pi/photos"
+  interval: ${SLIDESHOW_INTERVAL}  # 表示間隔（ミリ秒）
+  timeout: ${SLIDESHOW_TIMEOUT}    # 無操作時間（秒）
+  photos_directory: ${PHOTOS_DIRECTORY}  # フォトディレクトリのパス
 
-# カメラ設定
 camera:
-  resolution: "1920x1080"
+  resolution: ${CAMERA_RESOLUTION}
 
-# Samba設定
 samba:
-  user: "pi"
-  password: "your_strong_password"
+  user: ${SAMBA_USER}
+  password: ${SAMBA_PASSWORD}
 
-# Flask設定
 flask:
-  host: "0.0.0.0"
-  port: 5000
-  debug: False
+  host: ${FLASK_HOST}
+  port: ${FLASK_PORT}
+  debug: ${FLASK_DEBUG}
+
+environment: ${ENVIRONMENT}
+
 ```
 
 ### メインプログラム（main.py）の概要
@@ -1110,13 +1118,42 @@ if __name__ == "__main__":
 ## ユーティリティモジュール（utils.py）の概要
 
 ```python
-# utils.py
+# src/utils.py
+
+import os
 import yaml
+from dotenv import load_dotenv
+import re
 
 def load_config(config_path):
-    with open(config_path, 'r') as file:
-        config = yaml.safe_load(file)
+    """config.yaml ファイルを読み込み、環境変数を展開して設定を返す"""
+    # .env ファイルの読み込み
+    load_dotenv()
+
+    # YAMLファイルの読み込み
+    with open(config_path, 'r', encoding='utf-8') as file:
+        config_text = file.read()
+
+    # 環境変数のプレースホルダ (${VARIABLE_NAME}) を置換
+    pattern = re.compile(r'\$\{(\w+)\}')  # ${VARIABLE_NAME} を検出する正規表現パターン
+
+    def replace_env_variables(match):
+        var_name = match.group(1)  # 環境変数名を取得
+        return os.getenv(var_name, var_name)  # 環境変数を取得、見つからなければそのまま
+
+    # プレースホルダを環境変数で置換
+    config_text = pattern.sub(replace_env_variables, config_text)
+
+    # YAMLとしてパース
+    config = yaml.safe_load(config_text)
+
     return config
+
+# テスト用の実行例
+if __name__ == "__main__":
+    config = load_config('src/config.yaml')
+    print(config)
+
 ```
 
 ## フォトフレーム表示モジュール（photoframe_tkinter.py）の概要
