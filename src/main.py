@@ -1,5 +1,4 @@
 # main.py - Entry point of the FrameCamPi project
-# main.py
 import threading
 import time
 from utils import load_config
