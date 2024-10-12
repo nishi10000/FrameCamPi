@@ -7,6 +7,5 @@ Pillow==9.2.0
 PyYAML==6.0
 python-dotenv==0.21.0
 picamera==1.13
-pygame==2.1.2
 
 #pip install -r requirements.txtで実行
