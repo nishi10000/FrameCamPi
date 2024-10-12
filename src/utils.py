@@ -54,5 +54,5 @@ def load_config(config_filename='config.yaml', env_filename='.env'):
 
 # テスト用の実行例
 if __name__ == "__main__":
-    config = load_config()
+    config = load_config('src/config.yaml')
     print(config)
