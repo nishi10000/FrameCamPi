@@ -1,5 +1,3 @@
-# src/utils.py
-
 import os
 import yaml
 from dotenv import load_dotenv
@@ -24,7 +22,7 @@ def load_config(config_filename='config.yaml', env_filename='.env'):
 
     # .env ファイルのパスを構築して読み込む
     env_path = os.path.join(project_root, env_filename)
-    load_dotenv(env_path)
+    load_dotenv(env_path, override=True)
 
     # config.yaml ファイルのパスを構築
     config_path = os.path.join(script_dir, config_filename)
@@ -54,5 +52,5 @@ def load_config(config_filename='config.yaml', env_filename='.env'):
 
 # テスト用の実行例
 if __name__ == "__main__":
-    config = load_config('src/config.yaml')
+    config = load_config('config.yaml')
     print(config)
