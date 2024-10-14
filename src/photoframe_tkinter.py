@@ -54,9 +54,14 @@ class PhotoFrame(tk.Tk):
 if __name__ == "__main__":
     from utils import load_config
 
+    if os.environ.get('DISPLAY','') == '':
+        print('no display found. Using :0.0')
+        os.environ.__setitem__('DISPLAY', ':0.0')
+
     # config.yaml のパスを正しく指定
     config = load_config('config.yaml')  # srcディレクトリ内で実行する場合
     photo_directory = config['slideshow']['photos_directory']
     interval = config['slideshow']['interval']
+    print(photo_directory)
     app = PhotoFrame(photo_directory, interval)
     app.mainloop()
