@@ -39,16 +39,40 @@ class PhotoFrame(tk.Tk):
         photo_path = self.photos[self.current]
         try:
             img = Image.open(photo_path)
-            img = img.resize((self.winfo_screenwidth(), self.winfo_screenheight()), Image.ANTIALIAS)
+            
+            # 画面サイズを取得
+            screen_width = self.winfo_screenwidth()
+            screen_height = self.winfo_screenheight()
+            
+            # 画像の元のサイズを取得
+            img_width, img_height = img.size
+            
+            # スケーリングファクターを計算
+            scale_w = screen_width / img_width
+            scale_h = screen_height / img_height
+            scale = min(scale_w, scale_h)
+            
+            # 新しいサイズを計算
+            new_width = int(img_width * scale)
+            new_height = int(img_height * scale)
+            
+            # 画像をリサイズ
+            img = img.resize((new_width, new_height), Image.ANTIALIAS)
+            
+            # Tkinter用のPhotoImageに変換
             photo = ImageTk.PhotoImage(img)
+            
+            # 画像をラベルに設定
             self.label.config(image=photo)
             self.label.image = photo  # 参照を保持
-            print(f"表示中の写真: {photo_path}")
+            
+            print(f"表示中の写真: {photo_path} (サイズ: {new_width}x{new_height})")
         except Exception as e:
             print(f"写真の読み込み中にエラーが発生しました: {e}")
         
         self.current = (self.current + 1) % len(self.photos)
         self.after(self.interval, self.show_photo)
+
 
 # テスト用の実行例
 if __name__ == "__main__":
