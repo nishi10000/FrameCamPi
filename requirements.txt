@@ -8,4 +8,6 @@ PyYAML==6.0
 python-dotenv==0.21.0
 picamera==1.13
 screeninfo
+pyaudio
+
 #pip install -r requirements.txtで実行
