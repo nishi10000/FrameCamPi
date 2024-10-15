@@ -1,10 +1,11 @@
-#utils.py
+#utils.py #
 import os
 import yaml
 from dotenv import load_dotenv
 import re
 from screeninfo import get_monitors
 import logging
+
 
 def get_screen_sizes():
     """
