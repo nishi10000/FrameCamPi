@@ -2,6 +2,42 @@ import os
 import yaml
 from dotenv import load_dotenv
 import re
+from screeninfo import get_monitors
+import logging
+
+def get_screen_sizes():
+    """
+    画面サイズを取得し、ログに記録します。
+    DISPLAY 環境変数が設定されていない場合はデフォルト値を設定します。
+    """
+    if os.environ.get('DISPLAY', '') == '':
+        logging.debug('no display found. Using :0.0')
+        os.environ['DISPLAY'] = ':0.0'
+        os.environ['XAUTHORITY'] = '/home/sini/.Xauthority'
+        logging.debug("DISPLAY環境変数を ':0.0' に設定しました。")
+    
+    monitors = get_monitors()
+    for monitor in monitors:
+        logging.debug(f"ディスプレイ {monitor.name}: 幅={monitor.width}, 高さ={monitor.height}")
+        print(f"ディスプレイ {monitor.name}: 幅={monitor.width}, 高さ={monitor.height}")
+
+def setup_logging(script_dir, log_file='debug.log'):
+    """
+    ログ設定を初期化します。
+    ログファイルはスクリプトのディレクトリ内の logs フォルダに保存されます。
+    
+    Args:
+        script_dir (str): スクリプトのディレクトリパス。
+        log_file (str, optional): ログファイル名。デフォルトは 'debug.log'。
+    """
+    log_directory = os.path.join(script_dir, 'logs')
+    os.makedirs(log_directory, exist_ok=True)
+    
+    logging.basicConfig(
+        filename=os.path.join(log_directory, log_file),
+        level=logging.DEBUG,
+        format='%(asctime)s %(levelname)s:%(message)s'
+    )
 
 def load_config(config_filename='config.yaml', env_filename='.env'):
     """

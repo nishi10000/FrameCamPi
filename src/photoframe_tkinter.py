@@ -1,31 +1,10 @@
+# photoframe_tkinter.py
+
 import tkinter as tk
 from PIL import Image, ImageTk
 import os
-from screeninfo import get_monitors
 import logging
-
-# スクリプトのディレクトリを取得
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# ログディレクトリとファイル名を定義（相対パス）
-log_directory = os.path.join(script_dir, 'logs')  # 'logs' ディレクトリ内にログを保存
-log_file = 'debug.log'
-
-# ディレクトリが存在しない場合は作成
-os.makedirs(log_directory, exist_ok=True)
-
-# ログの設定
-logging.basicConfig(
-    filename=os.path.join(log_directory, log_file),
-    level=logging.DEBUG,
-    format='%(asctime)s %(levelname)s:%(message)s'
-)
-
-def get_screen_sizes():
-    monitors = get_monitors()
-    for monitor in monitors:
-        logging.debug(f"ディスプレイ {monitor.name}: 幅={monitor.width}, 高さ={monitor.height}")
-        print(f"ディスプレイ {monitor.name}: 幅={monitor.width}, 高さ={monitor.height}")
+from utils import get_screen_sizes, setup_logging
 
 class PhotoFrame(tk.Tk):
     def __init__(self, photo_directory, interval=5000):
@@ -179,15 +158,13 @@ class PhotoFrame(tk.Tk):
 
 # テスト用の実行例
 if __name__ == "__main__":
-    from utils import load_config
+    from utils import load_config  # 既に存在する関数として仮定
 
-    if os.environ.get('DISPLAY', '') == '':
-        print('no display found. Using :0.0')
-        logging.debug('no display found. Using :0.0')
-        os.environ['DISPLAY'] = ':0.0'
-        os.environ['XAUTHORITY'] = '/home/sini/.Xauthority'
-        print("DISPLAY環境変数を ':0.0' に設定しました。")
-        logging.debug("DISPLAY環境変数を ':0.0' に設定しました。")
+    # スクリプトのディレクトリを取得
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # ログ設定を初期化
+    setup_logging(script_dir)
 
     # config.yaml のパスを正しく指定
     config = load_config('config.yaml')  # srcディレクトリ内で実行する場合
@@ -198,6 +175,6 @@ if __name__ == "__main__":
     print(f"スライドショーの間隔: {interval} ミリ秒")
     logging.debug(f"スライドショーの間隔: {interval} ミリ秒")
 
-    app = PhotoFrame(photo_directory, interval)
     get_screen_sizes()
+    app = PhotoFrame(photo_directory, interval)
     app.mainloop()
