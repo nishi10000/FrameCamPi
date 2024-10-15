@@ -4,9 +4,19 @@ import os
 from screeninfo import get_monitors
 import logging
 
+# スクリプトのディレクトリを取得
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# ログディレクトリとファイル名を定義（相対パス）
+log_directory = os.path.join(script_dir, 'logs')  # 'logs' ディレクトリ内にログを保存
+log_file = 'debug.log'
+
+# ディレクトリが存在しない場合は作成
+os.makedirs(log_directory, exist_ok=True)
+
 # ログの設定
 logging.basicConfig(
-    filename='/home/sini/work/FrameCamPi/src/debug.log',
+    filename=os.path.join(log_directory, log_file),
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s:%(message)s'
 )
