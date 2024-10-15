@@ -21,7 +21,8 @@ def get_screen_sizes():
     for monitor in monitors:
         logging.debug(f"ディスプレイ {monitor.name}: 幅={monitor.width}, 高さ={monitor.height}")
         print(f"ディスプレイ {monitor.name}: 幅={monitor.width}, 高さ={monitor.height}")
-
+        return monitor.width, monitor.height
+    
 def setup_logging(script_dir, log_file='debug.log'):
     """
     ログ設定を初期化します。

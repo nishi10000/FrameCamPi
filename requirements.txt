@@ -9,5 +9,7 @@ python-dotenv==0.21.0
 picamera==1.13
 screeninfo
 pyaudio
+numpy==1.23.5
+
 
 #pip install -r requirements.txtで実行
