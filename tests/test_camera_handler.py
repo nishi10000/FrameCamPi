@@ -7,6 +7,7 @@ import shutil
 from unittest import mock
 import cv2
 import numpy as np  # NumPyをインポート
+import threading  # threading.Event を使用
 
 # srcディレクトリをPythonのパスに追加
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -60,8 +61,9 @@ class TestCameraHandler(unittest.TestCase):
     @mock.patch.object(CameraHandler, 'countdown_timer')  # countdown_timer をモック
     def test_capture_image_with_resized_window(self, mock_countdown_timer, mock_video_capture, mock_imwrite):
         # カウントダウンイベントを即時にセット
-        def immediate_set(event):
-            event.set()
+        def immediate_set(*args, **kwargs):
+            if len(args) > 0 and isinstance(args[0], threading.Event):
+                args[0].set()
         
         mock_countdown_timer.side_effect = immediate_set
 
