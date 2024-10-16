@@ -7,6 +7,10 @@ from voice_commands import listen_for_commands, process_command
 from smile_detection import detect_smile_and_capture
 from web_app import run_web_app
 from photo_capture import CameraHandler  # CameraHandlerをインポート
+import os
+import logging
+
+
 
 def command_listener(config):
     """音声コマンドをリスニングし、コマンドに応じた処理を実行する"""
