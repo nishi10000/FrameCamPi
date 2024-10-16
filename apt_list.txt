@@ -1,0 +1,6 @@
+#sudoでいれたinstallリスト
+sudo apt install python3-opencv
+sudo apt install code
+sudo apt install python3-yaml
+sudo apt install python3-screeninfo
+sudo apt install python3-pyaudio
