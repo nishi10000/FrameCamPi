@@ -1,1 +1,40 @@
-<!-- dashboard.html: Webアプリケーションのダ
+<!-- templates/dashboard.html -->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>写真ダッシュボード</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f0f0f0; }
+        .container { width: 80%; margin: auto; }
+        h1 { text-align: center; }
+        .upload-form { text-align: center; margin-bottom: 20px; }
+        .photos { display: flex; flex-wrap: wrap; justify-content: center; }
+        .photo { margin: 10px; border: 1px solid #ccc; padding: 10px; background-color: #fff; }
+        .photo img { width: 200px; height: auto; display: block; }
+        .download-link { text-align: center; margin-top: 5px; }
+        .download-link a { text-decoration: none; color: #007BFF; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>写真ダッシュボード</h1>
+        <div class="upload-form">
+            <form action="{{ url_for('upload_photo') }}" method="post" enctype="multipart/form-data">
+                <input type="file" name="photo" accept="image/*" required>
+                <button type="submit">アップロード</button>
+            </form>
+        </div>
+        <div class="photos">
+            {% for photo in photos %}
+                <div class="photo">
+                    <img src="{{ url_for('download_photo', filename=photo) }}" alt="{{ photo }}">
+                    <div class="download-link">
+                        <a href="{{ url_for('download_photo', filename=photo) }}" download>ダウンロード</a>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
