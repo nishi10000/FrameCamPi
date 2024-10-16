@@ -1,7 +1,15 @@
 import cv2
 import time
 import threading
-from utils import get_screen_sizes  # utils.pyからインポート
+from utils import get_screen_sizes,load_config  # utils.pyからインポート
+import datetime
+import sys
+import os
+
+def get_timestamp():
+    """現在の日時を取得して、ファイル名に使用できる形式にフォーマットします。"""
+    return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
 
 def countdown_timer(countdown_time, countdown_event):
     """
@@ -162,17 +170,33 @@ def start_camera_preview():
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    # get_screen_sizes()
-    # start_camera_preview()
-    capture_image_with_resized_window(3, 'captured_image.jpg')
 
-# if __name__ == "__main__":
-#     # カメラを初期化
-#     cap = initialize_camera()
+    # スクリプトのディレクトリを取得
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
-#     if cap:
-#         # 画像をキャプチャして保存
-#         capture_image(cap, 'captured_image.jpg')
-        
-#         # カメラを解放
-#         release_camera(cap)
+    # config.yaml のパスを構築
+    config_path = os.path.join(script_dir, 'config.yaml')  # config.yaml が src ディレクトリ内にある場合
+
+    if not os.path.exists(config_path):
+        print(f"Config file not found: {config_path}")
+        sys.exit(1)
+
+    # 設定ファイルをロード
+    config = load_config(config_path)
+    timestamp = get_timestamp()
+
+    # 写真保存ディレクトリを取得
+    photo_directory = config.get('slideshow', {}).get('photos_directory', '')
+
+    # ディレクトリが相対パスの場合、スクリプトのディレクトリを基準にする
+    photo_directory = os.path.join(script_dir, photo_directory)
+
+    # ディレクトリが存在しない場合は作成
+    os.makedirs(photo_directory, exist_ok=True)
+
+    # タイムスタンプ付きのファイル名を作成
+    filename = f"{timestamp}.jpg"
+    file_path = os.path.join(photo_directory, filename)
+
+    # 画像をキャプチャして保存
+    capture_image_with_resized_window(3, file_path)
