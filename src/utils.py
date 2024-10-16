@@ -5,7 +5,11 @@ from dotenv import load_dotenv
 import re
 from screeninfo import get_monitors
 import logging
+import datetime
 
+def get_timestamp():
+    """現在の日時を取得して、ファイル名に使用できる形式にフォーマットします。"""
+    return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 def get_screen_sizes():
     """

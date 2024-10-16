@@ -3,15 +3,11 @@
 import cv2
 import time
 import threading
-from utils import get_screen_sizes, load_config, setup_logging  # utils.pyからインポート
+from utils import get_screen_sizes, load_config, setup_logging,get_timestamp  # utils.pyからインポート
 import datetime
 import sys
 import os
 import logging
-
-def get_timestamp():
-    """現在の日時を取得して、ファイル名に使用できる形式にフォーマットします。"""
-    return datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
 class CameraHandler:
     def __init__(self, camera_index=0, countdown_time=3, preview_time=3, photo_directory='photos'):
