@@ -37,8 +37,12 @@ def setup_logging(script_dir, log_file='debug.log'):
         script_dir (str): スクリプトのディレクトリパス。
         log_file (str, optional): ログファイル名。デフォルトは 'debug.log'。
     """
-    log_directory = os.path.join(script_dir, 'logs')
-    os.makedirs(log_directory, exist_ok=True)
+    try:
+        log_directory = os.path.join(script_dir, 'logs')
+        os.makedirs(log_directory, exist_ok=True)
+    except OSError as e:
+        print(f"Failed to create log directory: {e}")
+        raise
     
     logging.basicConfig(
         filename=os.path.join(log_directory, log_file),
