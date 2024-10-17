@@ -60,6 +60,11 @@ def load_config(config_filename='config.yaml', env_filename='.env'):
 
     Returns:
         dict: 設定内容を含む辞書。
+
+    Raises:
+        FileNotFoundError: .env ファイルが存在しない場合。
+        FileNotFoundError: config.yaml ファイルが存在しない場合。
+        yaml.YAMLError: config.yaml が無効な YAML 形式の場合。
     """
     # 現在のスクリプトのディレクトリを取得
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -67,8 +72,14 @@ def load_config(config_filename='config.yaml', env_filename='.env'):
     # プロジェクトルートディレクトリを取得（.env がここにある）
     project_root = os.path.abspath(os.path.join(script_dir, os.pardir))
 
-    # .env ファイルのパスを構築して読み込む
+    # .env ファイルのパスを構築
     env_path = os.path.join(project_root, env_filename)
+
+    # .env ファイルが存在するか確認
+    if not os.path.exists(env_path):
+        raise FileNotFoundError(f"No such file or directory: '{env_path}'")
+
+    # .env ファイルの読み込み
     load_dotenv(env_path, override=True)
 
     # config.yaml ファイルのパスを構築
