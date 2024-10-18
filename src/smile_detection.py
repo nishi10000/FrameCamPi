@@ -1,15 +1,14 @@
 import cv2
 import time
 import logging
-from utils import get_screen_sizes, load_config, setup_logging, get_timestamp  # utils.pyからインポート
-from photo_capture import CameraHandler  # 既存のCameraHandlerクラスを使用
-import os
+from utils import get_screen_sizes, load_config, setup_logging, get_timestamp
+from photo_capture import CameraHandler
 import sys
+import os
 
 class SmileDetectionCameraHandler(CameraHandler):
     def __init__(self, camera_index=0, countdown_time=3, preview_time=3, photo_directory='photos'):
         super().__init__(camera_index, countdown_time, preview_time, photo_directory)
-        # 笑顔検出用カスケード分類器の読み込み
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         self.smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
 
@@ -20,14 +19,19 @@ class SmileDetectionCameraHandler(CameraHandler):
         smiles = self.smile_cascade.detectMultiScale(roi_gray, 1.8, 20)
         return len(smiles) > 0
 
+    def show_preview_with_overlay(self, window_name, frame, overlay_text=None):
+        """プレビューを表示し、必要に応じてオーバーレイテキストを追加"""
+        if overlay_text:
+            cv2.putText(frame, overlay_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 3, cv2.LINE_AA)
+        cv2.imshow(window_name, frame)
+
     def capture_image_on_smile(self, save_path):
         """笑顔が検出されたらカウントダウンして写真を撮影します"""
         if not self.initialize_camera():
             return
 
         window_name = 'Camera Preview - Smile Detection'
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(window_name, self.screen_width, self.screen_height)
+        self.setup_window(window_name)
 
         logging.info("笑顔を検出中...")
 
@@ -37,44 +41,44 @@ class SmileDetectionCameraHandler(CameraHandler):
                 logging.error("フレームを取得できませんでした。")
                 break
 
-            # 画像をグレースケールに変換
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = self.face_cascade.detectMultiScale(gray_frame, 1.3, 5)
 
-            # 顔を検出
-            faces = self.face_cascade.detectMultiScale(gray, 1.3, 5)
             for face in faces:
                 x, y, w, h = face
-                # 矩形で顔を表示
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-                # 笑顔を検出
-                if self.detect_smile(gray, face):
+                if self.detect_smile(gray_frame, face):
                     logging.info("笑顔が検出されました。3秒後に写真を撮影します。")
-                    self.show_camera_preview(window_name, "Smile Detected! Taking photo in 3...")
-                    
-                    # 3秒間のカウントダウン
-                    for i in range(self.countdown_time, 0, -1):
-                        overlay_text = f"{i}秒後に撮影します..."
-                        self.show_camera_preview(window_name, overlay_text)
-                        time.sleep(1)
+                    self.countdown_and_capture(window_name, frame, save_path)
+                    return  # 1枚の写真を撮ったら終了
 
-                    # 写真を撮影して保存
-                    self.captured_frame = self.capture_image(save_path)
-                    break
+            self.show_preview_with_overlay(window_name, frame)
 
-            cv2.imshow(window_name, frame)
-            
-            # 'q' キーで終了
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 logging.info("ユーザーによってキャプチャが中断されました。")
                 break
 
+        self.cleanup(window_name)
+
+    def countdown_and_capture(self, window_name, frame, save_path):
+        """カウントダウンを表示し、写真を撮影"""
+        for i in range(self.countdown_time, 0, -1):
+            self.show_preview_with_overlay(window_name, frame, f"{i}秒後に撮影します...")
+            time.sleep(1)
+
+        self.captured_frame = self.capture_image(save_path)
+
+    def setup_window(self, window_name):
+        """ウィンドウを設定"""
+        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+        cv2.resizeWindow(window_name, self.screen_width, self.screen_height)
+
+    def cleanup(self, window_name):
+        """カメラとウィンドウのリソースを解放"""
         self.cap.release()
         cv2.destroyAllWindows()
-
-        # 撮影された画像のプレビュー表示
-        if self.captured_frame is not None:
-            self.preview_image(self.captured_frame)
+        logging.info(f"{window_name} のウィンドウが閉じられました。")
 
 
 def main():
@@ -102,17 +106,10 @@ def main():
 
     # 写真保存ディレクトリを取得
     photo_directory = config.get('slideshow', {}).get('photos_directory', 'photos')
-
-    # ディレクトリが相対パスの場合、スクリプトのディレクトリを基準にする
     photo_directory = os.path.join(script_dir, photo_directory)
 
     # ディレクトリが存在しない場合は作成
-    try:
-        os.makedirs(photo_directory, exist_ok=True)
-        logging.info(f"写真保存ディレクトリ: {photo_directory}")
-    except Exception as e:
-        logging.error(f"写真保存ディレクトリの作成に失敗しました: {e}")
-        sys.exit(1)
+    os.makedirs(photo_directory, exist_ok=True)
 
     # タイムスタンプ付きのファイル名を作成
     filename = f"{timestamp}.jpg"
