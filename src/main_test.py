@@ -1,9 +1,10 @@
 # main_test.py
 
 import os
-from utils import load_config, setup_logging, get_screen_sizes
+from utils import load_config, setup_logging, get_screen_sizes,get_timestamp
 from photoframe_tkinter import PhotoFrame
 import logging
+import photo_capture
 
 def main():
     """
@@ -32,6 +33,15 @@ def main():
         print("設定ファイルに 'photos_directory' が指定されていません。")
         logging.error("設定ファイルに 'photos_directory' が指定されていません。")
         return
+    
+    # CameraHandler クラスのインスタンスを作成
+    camera = photo_capture.CameraHandler(camera_index=0, countdown_time=5, preview_time=5, photo_directory=photo_directory)
+    timestamp = get_timestamp()
+    # タイムスタンプ付きのファイル名を作成
+    filename = f"{timestamp}.jpg"
+    file_path = os.path.join(photo_directory, filename)
+    # 画像をキャプチャして保存
+    camera.capture_image_with_resized_window(file_path)
 
     # 画面サイズを取得
     get_screen_sizes()
@@ -41,4 +51,5 @@ def main():
     app.mainloop()
 
 if __name__ == "__main__":
+
     main()

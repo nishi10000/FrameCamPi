@@ -54,6 +54,7 @@ class CameraHandler:
         Parameters:
         - save_path (str): 撮影した画像の保存先
         """
+
         if not self.initialize_camera():
             return
 
@@ -69,6 +70,7 @@ class CameraHandler:
 
         while True:
             ret, frame = self.cap.read()
+            
             if not ret:
                 logging.error("フレームを取得できませんでした。")
                 break
