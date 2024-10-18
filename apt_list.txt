@@ -6,3 +6,5 @@ sudo apt install python3-screeninfo
 sudo apt install python3-pyaudio
 sudo apt install python3-pillow
 sudo apt install python3-pil.imagetk
+sudo apt-get install fonts-ipafont
+sudo apt-get install fonts-ipafont

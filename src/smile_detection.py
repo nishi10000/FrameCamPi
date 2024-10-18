@@ -1,16 +1,21 @@
 import cv2
 import time
 import logging
+import os
+import sys
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 from utils import get_screen_sizes, load_config, setup_logging, get_timestamp
 from photo_capture import CameraHandler
-import sys
-import os
 
 class SmileDetectionCameraHandler(CameraHandler):
     def __init__(self, camera_index=0, countdown_time=3, preview_time=3, photo_directory='photos'):
         super().__init__(camera_index, countdown_time, preview_time, photo_directory)
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         self.smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
+        # 日本語フォントのパスを指定（適切なフォントファイルを使用してください）
+        self.font_path = '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf'  # 例として
+        self.font_size = 48  # フォントサイズを調整
 
     def detect_smile(self, gray_frame, face_region):
         """顔領域内で笑顔を検出します"""
@@ -20,12 +25,19 @@ class SmileDetectionCameraHandler(CameraHandler):
         return len(smiles) > 0
 
     def show_preview_with_overlay(self, window_name, frame, overlay_text=None):
-        """プレビューを表示し、必要に応じてオーバーレイテキストを追加"""
+        """プレビューを表示し、必要に応じてオーバーレイテキストを追加（日本語対応）"""
         if overlay_text:
-            cv2.putText(frame, overlay_text, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 0, 0), 3, cv2.LINE_AA)
+            # OpenCVの画像をPillowの画像に変換
+            frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            draw = ImageDraw.Draw(frame_pil)
+            font = ImageFont.truetype(self.font_path, self.font_size)
+            # テキストを描画
+            draw.text((50, 50), overlay_text, font=font, fill=(255, 0, 0))
+            # Pillowの画像をOpenCVの画像に戻す
+            frame = cv2.cvtColor(np.array(frame_pil), cv2.COLOR_RGB2BGR)
         cv2.imshow(window_name, frame)
 
-    def capture_image_on_smile(self, save_path):
+    def capture_image_on_smile(self):
         """笑顔が検出されたらカウントダウンして写真を撮影します"""
         if not self.initialize_camera():
             return
@@ -50,7 +62,8 @@ class SmileDetectionCameraHandler(CameraHandler):
 
                 if self.detect_smile(gray_frame, face):
                     logging.info("笑顔が検出されました。3秒後に写真を撮影します。")
-                    self.countdown_and_capture(window_name, frame, save_path)
+                    self.countdown_and_capture(window_name, frame)
+                    # 写真を撮影した後も続ける場合は、以下の行をコメントアウトします
                     return  # 1枚の写真を撮ったら終了
 
             self.show_preview_with_overlay(window_name, frame)
@@ -61,11 +74,17 @@ class SmileDetectionCameraHandler(CameraHandler):
 
         self.cleanup(window_name)
 
-    def countdown_and_capture(self, window_name, frame, save_path):
+    def countdown_and_capture(self, window_name, frame):
         """カウントダウンを表示し、写真を撮影"""
         for i in range(self.countdown_time, 0, -1):
             self.show_preview_with_overlay(window_name, frame, f"{i}秒後に撮影します...")
+            cv2.waitKey(1)
             time.sleep(1)
+
+        # タイムスタンプ付きのファイル名を作成
+        timestamp = get_timestamp()
+        filename = f"{timestamp}.jpg"
+        save_path = os.path.join(self.photo_directory, filename)
 
         self.captured_frame = self.capture_image(save_path)
 
@@ -79,7 +98,6 @@ class SmileDetectionCameraHandler(CameraHandler):
         self.cap.release()
         cv2.destroyAllWindows()
         logging.info(f"{window_name} のウィンドウが閉じられました。")
-
 
 def main():
     # スクリプトのディレクトリを取得
@@ -102,20 +120,15 @@ def main():
         logging.error(f"設定ファイルの読み込みに失敗しました: {e}")
         sys.exit(1)
 
-    timestamp = get_timestamp()
-
     # 写真保存ディレクトリを取得
     photo_directory = config.get('slideshow', {}).get('photos_directory', 'photos')
     photo_directory = os.path.join(script_dir, photo_directory)
 
     # ディレクトリが存在しない場合は作成
     os.makedirs(photo_directory, exist_ok=True)
+    logging.info(f"写真保存ディレクトリ: {photo_directory}")
 
-    # タイムスタンプ付きのファイル名を作成
-    filename = f"{timestamp}.jpg"
-    file_path = os.path.join(photo_directory, filename)
-
-    # 笑顔検出付きカメラハンドラーのインスタンスを作成
+    # カメラハンドラーのインスタンスを作成
     camera_config = config.get('camera', {})
     camera_handler = SmileDetectionCameraHandler(
         camera_index=camera_config.get('index', 0),
@@ -125,8 +138,7 @@ def main():
     )
 
     # 笑顔が検出されたら画像をキャプチャして保存
-    camera_handler.capture_image_on_smile(file_path)
-
+    camera_handler.capture_image_on_smile()
 
 if __name__ == "__main__":
     main()
