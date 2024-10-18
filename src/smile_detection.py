@@ -13,8 +13,8 @@ class SmileDetectionCameraHandler(CameraHandler):
         super().__init__(camera_index, countdown_time, preview_time, photo_directory)
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         self.smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
-        # 日本語フォントのパスを指定（適切なフォントファイルを使用してください）
-        self.font_path = '/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf'  # 例として
+        # 日本語フォントのパスを指定
+        self.font_path = '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf'  # 適切なフォントパスに変更
         self.font_size = 48  # フォントサイズを調整
 
     def detect_smile(self, gray_frame, face_region):
@@ -56,15 +56,21 @@ class SmileDetectionCameraHandler(CameraHandler):
             gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             faces = self.face_cascade.detectMultiScale(gray_frame, 1.3, 5)
 
+            smile_detected = False
+
             for face in faces:
                 x, y, w, h = face
                 cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
                 if self.detect_smile(gray_frame, face):
-                    logging.info("笑顔が検出されました。3秒後に写真を撮影します。")
-                    self.countdown_and_capture(window_name, frame)
-                    # 写真を撮影した後も続ける場合は、以下の行をコメントアウトします
-                    return  # 1枚の写真を撮ったら終了
+                    smile_detected = True
+                    logging.info("笑顔が検出されました。カウントダウンを開始します。")
+                    break  # 笑顔を検出したらループを抜ける
+
+            if smile_detected:
+                self.countdown_and_capture(window_name)
+                # 写真を撮影した後も続ける場合は、以下の行をコメントアウトします
+                return  # 1枚の写真を撮ったら終了
 
             self.show_preview_with_overlay(window_name, frame)
 
@@ -74,19 +80,35 @@ class SmileDetectionCameraHandler(CameraHandler):
 
         self.cleanup(window_name)
 
-    def countdown_and_capture(self, window_name, frame):
+    def countdown_and_capture(self, window_name):
         """カウントダウンを表示し、写真を撮影"""
-        for i in range(self.countdown_time, 0, -1):
-            self.show_preview_with_overlay(window_name, frame, f"{i}秒後に撮影します...")
-            cv2.waitKey(1)
-            time.sleep(1)
+        start_time = time.time()
+        end_time = start_time + self.countdown_time
 
-        # タイムスタンプ付きのファイル名を作成
+        while time.time() < end_time:
+            ret, frame = self.cap.read()
+            if not ret:
+                logging.error("フレームを取得できませんでした。")
+                break
+
+            seconds_left = int(end_time - time.time()) + 1  # 残り秒数
+
+            overlay_text = f"{seconds_left}秒後に撮影します..."
+            self.show_preview_with_overlay(window_name, frame, overlay_text)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                logging.info("ユーザーによってカウントダウンが中断されました。")
+                return
+
+        # 写真を撮影
         timestamp = get_timestamp()
         filename = f"{timestamp}.jpg"
         save_path = os.path.join(self.photo_directory, filename)
-
         self.captured_frame = self.capture_image(save_path)
+
+        # 撮影された画像のプレビュー表示
+        if self.captured_frame is not None:
+            self.preview_image(self.captured_frame)
 
     def setup_window(self, window_name):
         """ウィンドウを設定"""
