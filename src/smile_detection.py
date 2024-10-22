@@ -5,17 +5,68 @@ import os
 import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-from utils import get_screen_sizes, load_config, setup_logging, get_timestamp
+from utils import load_config, setup_logging, get_timestamp
 from photo_capture import CameraHandler
 
 class SmileDetectionCameraHandler(CameraHandler):
     def __init__(self, camera_index=0, countdown_time=3, preview_time=3, photo_directory='photos'):
         super().__init__(camera_index, countdown_time, preview_time, photo_directory)
-        self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        self.smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
+        
+        # デフォルトのHaar Cascadeディレクトリ
+        fallback_haarcascade_dir = '/usr/share/opencv4/haarcascades/'
+        fallback_face_cascade_path = os.path.join(fallback_haarcascade_dir, 'haarcascade_frontalface_default.xml')
+        fallback_smile_cascade_path = os.path.join(fallback_haarcascade_dir, 'haarcascade_smile.xml')
+        
+        # 初期化フラグ
+        loaded_via_cv_data = False
+        
+        try:
+            # cv2.data.haarcascadesが存在するか確認
+            haarcascades = cv2.data.haarcascades
+            print(f"Using cv2.data.haarcascades path: {haarcascades}")
+            loaded_via_cv_data = True
+        except AttributeError:
+            print("cv2.data.haarcascades が存在しません。フォールバックパスを使用します。")
+            haarcascades = fallback_haarcascade_dir
+        
+        # 顔検出カスケードのロード
+        face_cascade_path = os.path.join(haarcascades, 'haarcascade_frontalface_default.xml')
+        self.face_cascade = cv2.CascadeClassifier(face_cascade_path)
+        if self.face_cascade.empty():
+            if loaded_via_cv_data:
+                print(f"{face_cascade_path} の読み込みに失敗しました。フォールバックパスを使用します。")
+                self.face_cascade = cv2.CascadeClassifier(fallback_face_cascade_path)
+                if self.face_cascade.empty():
+                    raise IOError(f"顔検出カスケードを {face_cascade_path} および {fallback_face_cascade_path} から読み込めません。")
+            else:
+                raise IOError(f"顔検出カスケードを {face_cascade_path} から読み込めません。")
+        else:
+            print(f"顔検出カスケードを {face_cascade_path} からロードしました。")
+        
+        # 笑顔検出カスケードのロード
+        smile_cascade_path = os.path.join(haarcascades, 'haarcascade_smile.xml')
+        self.smile_cascade = cv2.CascadeClassifier(smile_cascade_path)
+        if self.smile_cascade.empty():
+            if loaded_via_cv_data:
+                print(f"{smile_cascade_path} の読み込みに失敗しました。フォールバックパスを使用します。")
+                self.smile_cascade = cv2.CascadeClassifier(fallback_smile_cascade_path)
+                if self.smile_cascade.empty():
+                    raise IOError(f"笑顔検出カスケードを {smile_cascade_path} および {fallback_smile_cascade_path} から読み込めません。")
+            else:
+                raise IOError(f"笑顔検出カスケードを {smile_cascade_path} から読み込めません。")
+        else:
+            print(f"笑顔検出カスケードを {smile_cascade_path} からロードしました。")
+        
         # 日本語フォントのパスを指定
         self.font_path = '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf'  # 適切なフォントパスに変更
         self.font_size = 48  # フォントサイズを調整
+
+        # フォントファイルの存在確認
+        if not os.path.exists(self.font_path):
+            raise IOError(f"指定されたフォントパスが存在しません: {self.font_path}")
+
+        print("SmileDetectionCameraHandler の初期化が完了しました。")
+
 
     def detect_smile(self, gray_frame, face_region):
         """顔領域内で笑顔を検出します"""

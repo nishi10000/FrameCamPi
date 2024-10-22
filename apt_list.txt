@@ -1,3 +1,5 @@
+# raspi-configからlegacy cameraをEnableにする必要あり。
+
 #sudoでいれたinstallリスト
 sudo apt install python3-opencv
 sudo apt install code
@@ -6,5 +8,6 @@ sudo apt install python3-screeninfo
 sudo apt install python3-pyaudio
 sudo apt install python3-pillow
 sudo apt install python3-pil.imagetk
+sudo apt install python3-dotenv
 sudo apt-get install fonts-ipafont
-sudo apt-get install fonts-ipafont
+
