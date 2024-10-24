@@ -4,37 +4,33 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import os
 import logging
-from utils import get_screen_sizes, setup_logging
+from utils import get_screen_sizes, setup_logging, load_config
 
-class PhotoFrame(tk.Tk):
-    def __init__(self, photo_directory, interval=5000):
-        super().__init__()
+class PhotoFrame(tk.Frame):
+    def __init__(self, parent, photo_directory, interval=5000):
+        super().__init__(parent)
+        self.parent = parent
         self.photo_directory = photo_directory
         self.interval = interval  # ミリ秒
         self.photos = self.load_photos()
         self.current = 0
 
         # 実際の画面サイズをTkinterから取得
-        screen_width = self.winfo_screenwidth()
-        screen_height = self.winfo_screenheight()
+        screen_width = self.parent.winfo_screenwidth()
+        screen_height = self.parent.winfo_screenheight()
         print(f"実際の画面サイズを取得しました: {screen_width}x{screen_height}")
         logging.debug(f"実際の画面サイズを取得しました: {screen_width}x{screen_height}")
 
         # フルスクリーン設定
-        self.attributes('-fullscreen', True)
+        self.parent.attributes('-fullscreen', True)
         print("ウィンドウをフルスクリーンに設定しました。")
         logging.debug("ウィンドウをフルスクリーンに設定しました。")
-
-        # ウィンドウの更新を行い、サイズを確定
-        self.update()
-        print("ウィンドウを更新しました。")
-        logging.debug("ウィンドウを更新しました。")
 
         # Canvasの作成とパッキング
         self.canvas = tk.Canvas(self, bg='black', highlightthickness=0, width=screen_width, height=screen_height)
         self.canvas.pack(fill=tk.BOTH, expand=True)
-        print(f"Canvasを作成し、ウィンドウにパックしました。 サイズ: {screen_width}x{screen_height}")
-        logging.debug(f"Canvasを作成し、ウィンドウにパックしました。 サイズ: {screen_width}x{screen_height}")
+        print(f"Canvasを作成し、フレームにパックしました。 サイズ: {screen_width}x{screen_height}")
+        logging.debug(f"Canvasを作成し、フレームにパックしました。 サイズ: {screen_width}x{screen_height}")
 
         # Canvasのサイズを取得（確認用）
         self.update_idletasks()  # Canvasのサイズを確定
@@ -44,7 +40,7 @@ class PhotoFrame(tk.Tk):
         logging.debug(f"Canvasのサイズ: {canvas_width}x{canvas_height}")
 
         # イベントバインド
-        self.bind("<Escape>", lambda e: self.destroy())  # Escapeキーで終了
+        self.parent.bind("<Escape>", lambda e: self.parent.destroy())  # Escapeキーで終了
         print("Escapeキーをバインドしました。")
         logging.debug("Escapeキーをバインドしました。")
 
@@ -59,7 +55,6 @@ class PhotoFrame(tk.Tk):
         if not os.path.exists(self.photo_directory):
             print(f"指定されたフォトディレクトリが存在しません: {self.photo_directory}")
             logging.error(f"指定されたフォトディレクトリが存在しません: {self.photo_directory}")
-            self.destroy()
             return []
         photos = [os.path.join(self.photo_directory, f) for f in os.listdir(self.photo_directory) if f.lower().endswith(supported_formats)]
         print(f"読み込まれた写真の数: {len(photos)}")
@@ -84,7 +79,7 @@ class PhotoFrame(tk.Tk):
         if not self.photos:
             print("写真が見つかりません。フォトディレクトリに画像を追加してください。")
             logging.warning("写真が見つかりません。フォトディレクトリに画像を追加してください。")
-            self.destroy()
+            self.parent.destroy()
             return
 
         photo_path = self.photos[self.current]
@@ -97,8 +92,8 @@ class PhotoFrame(tk.Tk):
             logging.debug(f"写真を開きました: {photo_path} (元のサイズ: {img.size})")
 
             # 画面サイズを取得（Tkinterから）
-            screen_width = self.winfo_screenwidth()
-            screen_height = self.winfo_screenheight()
+            screen_width = self.parent.winfo_screenwidth()
+            screen_height = self.parent.winfo_screenheight()
             print(f"再度画面サイズを取得しました: {screen_width}x{screen_height}")
             logging.debug(f"再度画面サイズを取得しました: {screen_width}x{screen_height}")
 
@@ -158,23 +153,50 @@ class PhotoFrame(tk.Tk):
 
 # テスト用の実行例
 if __name__ == "__main__":
-    from utils import load_config  # 既に存在する関数として仮定
+    def test_photo_frame():
+        # スクリプトのディレクトリを取得
+        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # スクリプトのディレクトリを取得
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+        # ログ設定を初期化
+        setup_logging(script_dir)
+        logging.debug("ログ設定を初期化しました。")
 
-    # ログ設定を初期化
-    setup_logging(script_dir)
+        # config.yaml のパスを指定
+        config_path = os.path.join(script_dir, 'config.yaml')
 
-    # config.yaml のパスを正しく指定
-    config = load_config('config.yaml')  # srcディレクトリ内で実行する場合
-    photo_directory = config['slideshow']['photos_directory']
-    interval = config['slideshow']['interval']
-    print(f"フォトディレクトリ: {photo_directory}")
-    logging.debug(f"フォトディレクトリ: {photo_directory}")
-    print(f"スライドショーの間隔: {interval} ミリ秒")
-    logging.debug(f"スライドショーの間隔: {interval} ミリ秒")
+        # 設定ファイルを読み込む
+        config = load_config(config_path)
+        if config is None:
+            logging.error("設定ファイルの読み込みに失敗しました。アプリケーションを終了します。")
+            exit(1)
 
-    get_screen_sizes()
-    app = PhotoFrame(photo_directory, interval)
-    app.mainloop()
+        # スライドショーの設定を取得
+        try:
+            photo_directory = config['slideshow']['photos_directory']
+            interval = config['slideshow']['interval']
+            logging.debug(f"フォトディレクトリ: {photo_directory}")
+            logging.debug(f"スライドショーの間隔: {interval} ミリ秒")
+        except KeyError as e:
+            logging.error(f"設定ファイルに必要なキーが不足しています: {e}")
+            exit(1)
+
+        # 画面サイズを取得（必要に応じて使用）
+        get_screen_sizes()
+
+        # Tkinterのルートウィンドウを作成
+        root = tk.Tk()
+        root.withdraw()  # 一旦非表示にする
+
+        # PhotoFrameをメインフレームとして配置
+        app = PhotoFrame(root, photo_directory, interval)
+        app.pack(fill=tk.BOTH, expand=True)
+        root.deiconify()  # ルートウィンドウを表示
+
+        # メインループを開始
+        try:
+            root.mainloop()
+        except Exception as e:
+            logging.error(f"アプリケーションの実行中にエラーが発生しました: {e}")
+            exit(1)
+
+    test_photo_frame()
