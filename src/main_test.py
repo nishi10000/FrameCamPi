@@ -1,84 +1,94 @@
-# main.py
+# test_main.py
 
-import os
-import logging
 import tkinter as tk
-from photoframe_tkinter import PhotoFrame
-from smile_detection import SmileDetectionFrame
-from utils import load_config, setup_logging, get_screen_sizes
+from tkinter import ttk, messagebox
+import subprocess
+import sys
+import os
+import threading
+from utils import get_screen_sizes
 
-class App(tk.Tk):
-    def __init__(self, photo_directory, interval):
+class ModeSwitcherApp(tk.Tk):
+    def __init__(self):
         super().__init__()
-        self.photo_directory = photo_directory
-        self.interval = interval
-        self.title("Photo Frame & Smile Detection App")
+        self.title("モードスイッチャー")
+        self.geometry("400x200")
+        self.resizable(False, False)
 
-        # フルスクリーン設定
-        self.attributes('-fullscreen', True)
-        logging.debug("ウィンドウをフルスクリーンに設定しました。")
+        # ラベルの作成
+        label = ttk.Label(self, text="実行したいモードを選択してください。", font=("Arial", 14))
+        label.pack(pady=20)
 
-        # 現在のフレームを保持する変数
-        self.current_frame = None
+        # フレームの作成
+        button_frame = ttk.Frame(self)
+        button_frame.pack(pady=10)
 
-        # 最初にPhotoFrameを表示
-        self.show_photo_frame()
+        # Photo Frame モードのボタン
+        self.photo_frame_button = ttk.Button(button_frame, text="Photo Frame モード", command=self.launch_photo_frame)
+        self.photo_frame_button.grid(row=0, column=0, padx=10, pady=10)
 
-        # キーボードイベントのバインド
-        self.bind("<Escape>", lambda e: self.destroy())  # Escapeキーで終了
-        self.bind("<s>", lambda e: self.show_smile_detection_frame())  # 's'キーでSmileDetectionFrameに切り替え
-        self.bind("<p>", lambda e: self.show_photo_frame())  # 'p'キーでPhotoFrameに戻す
+        # Smile Detection モードのボタン
+        self.smile_detection_button = ttk.Button(button_frame, text="Smile Detection モード", command=self.launch_smile_detection)
+        self.smile_detection_button.grid(row=0, column=1, padx=10, pady=10)
 
-    def show_photo_frame(self):
-        if self.current_frame:
-            self.current_frame.destroy()
-        self.current_frame = PhotoFrame(self, self.photo_directory, self.interval)
-        self.current_frame.pack(fill=tk.BOTH, expand=True)
-        logging.debug("PhotoFrameを表示しました。")
+        # 終了ボタン
+        self.exit_button = ttk.Button(self, text="終了", command=self.quit)
+        self.exit_button.pack(pady=10)
 
-    def show_smile_detection_frame(self):
-        if self.current_frame:
-            self.current_frame.destroy()
-        self.current_frame = SmileDetectionFrame(self)
-        self.current_frame.pack(fill=tk.BOTH, expand=True)
-        logging.debug("SmileDetectionFrameを表示しました。")
+        # スクリプトのパスを取得
+        self.script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.photoframe_script = os.path.join(self.script_dir, 'photoframe_tkinter.py')
+        self.smile_detection_script = os.path.join(self.script_dir, 'smile_detection.py')
 
-def main():
-    # スクリプトのディレクトリを取得
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+        # スクリプトの存在確認
+        if not os.path.isfile(self.photoframe_script):
+            messagebox.showerror("エラー", f"'{self.photoframe_script}' が見つかりません。")
+            self.photo_frame_button.config(state=tk.DISABLED)
+        if not os.path.isfile(self.smile_detection_script):
+            messagebox.showerror("エラー", f"'{self.smile_detection_script}' が見つかりません。")
+            self.smile_detection_button.config(state=tk.DISABLED)
 
-    # ログ設定を初期化
-    setup_logging(script_dir)
-    logging.debug("ログ設定を初期化しました。")
+        # プロセス管理用リスト
+        self.processes = []
 
-    # config.yaml のパスを指定
-    config_path = os.path.join(script_dir, 'config.yaml')
+        # ウィンドウ閉じる時の処理
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-    # 設定ファイルを読み込む
-    config = load_config(config_path)
-    if config is None:
-        logging.error("設定ファイルの読み込みに失敗しました。アプリケーションを終了します。")
-        return
+    def launch_photo_frame(self):
+        """Photo Frame モードを起動します。"""
+        try:
+            # Pythonインタープリタを指定してスクリプトを実行
+            process = subprocess.Popen([sys.executable, self.photoframe_script],
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE)
+            self.processes.append(process)
+            messagebox.showinfo("実行中", "Photo Frame モードを起動しました。")
+        except Exception as e:
+            messagebox.showerror("エラー", f"Photo Frame モードの起動に失敗しました。\n{e}")
 
-    # スライドショーの設定を取得
-    try:
-        photo_directory = config['slideshow']['photos_directory']
-        interval = config['slideshow']['interval']
-        logging.debug(f"フォトディレクトリ: {photo_directory}")
-        logging.debug(f"スライドショーの間隔: {interval} ミリ秒")
-    except KeyError as e:
-        logging.error(f"設定ファイルに必要なキーが不足しています: {e}")
-        return
+    def launch_smile_detection(self):
+        """Smile Detection モードを起動します。"""
+        try:
+            # Pythonインタープリタを指定してスクリプトを実行
+            process = subprocess.Popen([sys.executable, self.smile_detection_script],
+                                       stdout=subprocess.PIPE,
+                                       stderr=subprocess.PIPE)
+            self.processes.append(process)
+            messagebox.showinfo("実行中", "Smile Detection モードを起動しました。")
+        except Exception as e:
+            messagebox.showerror("エラー", f"Smile Detection モードの起動に失敗しました。\n{e}")
 
-    # 画面サイズを取得（必要に応じて使用）
-    get_screen_sizes()
-
-    # メインアプリケーションを初期化して実行
-    try:
-        app = App(photo_directory, interval)
-        app.mainloop()
-    except Exception as e:
-        logging.error(f"アプリケーションの実行中にエラーが発生しました: {e}")
+    def on_closing(self):
+        """アプリケーション終了時の処理。起動したプロセスを終了します。"""
+        if self.processes:
+            if messagebox.askokcancel("終了確認", "起動中のモードがあります。終了しますか？"):
+                for process in self.processes:
+                    process.terminate()
+                self.destroy()
+        else:
+            self.destroy()
 
 if __name__ == "__main__":
-    main()
+    get_screen_sizes()
+    app = ModeSwitcherApp()
+    app.mainloop()
