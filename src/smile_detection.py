@@ -1,12 +1,17 @@
+# smile_detection.py
+
 import cv2
 import time
 import logging
 import os
 import sys
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+import tkinter as tk
+from tkinter import ttk
+from PIL import Image, ImageFont, ImageTk
 from utils import load_config, setup_logging, get_timestamp
-from photo_capture import CameraHandler
+from photo_capture import CameraHandler  # CameraHandler をインポート
+
 
 class SmileDetectionCameraHandler(CameraHandler):
     def __init__(self, camera_index=0, countdown_time=3, preview_time=3, photo_directory='photos'):
@@ -58,160 +63,249 @@ class SmileDetectionCameraHandler(CameraHandler):
             print(f"笑顔検出カスケードを {smile_cascade_path} からロードしました。")
         
         # 日本語フォントのパスを指定
-        self.font_path = '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf'  # 適切なフォントパスに変更
+        self.font_path = self.get_font_path()
         self.font_size = 48  # フォントサイズを調整
 
         # フォントファイルの存在確認
         if not os.path.exists(self.font_path):
-            raise IOError(f"指定されたフォントパスが存在しません: {self.font_path}")
+            logging.warning(f"指定されたフォントパスが存在しません: {self.font_path}. デフォルトフォントを使用します。")
+            self.font = ImageFont.load_default()
+        else:
+            self.font = ImageFont.truetype(self.font_path, self.font_size)
 
         print("SmileDetectionCameraHandler の初期化が完了しました。")
 
+    def get_font_path(self):
+        """
+        システムに応じた日本語フォントのパスを返します。
+        必要に応じてパスを変更してください。
+        """
+        if sys.platform.startswith('linux'):
+            # Linux の場合
+            return '/usr/share/fonts/truetype/fonts-japanese-gothic.ttf'  # 適切なフォントパスに変更
+        elif sys.platform == 'darwin':
+            # macOS の場合
+            return '/Library/Fonts/Arial Unicode.ttf'  # 適切なフォントパスに変更
+        elif sys.platform == 'win32':
+            # Windows の場合
+            return 'C:/Windows/Fonts/msgothic.ttc'  # 適切なフォントパスに変更
+        else:
+            raise IOError("対応していないOSです。フォントパスを手動で設定してください。")
 
-    def detect_smile(self, gray_frame, face_region):
-        """顔領域内で笑顔を検出します"""
-        x, y, w, h = face_region
-        roi_gray = gray_frame[y:y+h, x:x+w]
-        smiles = self.smile_cascade.detectMultiScale(roi_gray, 1.8, 20)
-        return len(smiles) > 0
 
-    def show_preview_with_overlay(self, window_name, frame, overlay_text=None):
-        """プレビューを表示し、必要に応じてオーバーレイテキストを追加（日本語対応）"""
-        if overlay_text:
-            # OpenCVの画像をPillowの画像に変換
-            frame_pil = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            draw = ImageDraw.Draw(frame_pil)
-            font = ImageFont.truetype(self.font_path, self.font_size)
-            # テキストを描画
-            draw.text((50, 50), overlay_text, font=font, fill=(255, 0, 0))
-            # Pillowの画像をOpenCVの画像に戻す
-            frame = cv2.cvtColor(np.array(frame_pil), cv2.COLOR_RGB2BGR)
-        cv2.imshow(window_name, frame)
+class SmileDetectionFrame(tk.Frame):
+    def __init__(self, parent, camera_handler: SmileDetectionCameraHandler, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.parent = parent
+        self.camera_handler = camera_handler
+        self.camera_handler.initialize_camera()
 
-    def capture_image_on_smile(self):
-        """笑顔が検出されたらカウントダウンして写真を撮影します"""
-        if not self.initialize_camera():
+        # 顔と笑顔の検出用カスケードファイルのパスを設定
+        self.face_cascade = self.camera_handler.face_cascade
+        self.smile_cascade = self.camera_handler.smile_cascade
+
+        # フォント設定
+        self.font_path = self.camera_handler.font_path
+        self.font_size = self.camera_handler.font_size
+        try:
+            self.font = ImageFont.truetype(self.font_path, self.font_size)
+        except IOError:
+            logging.error(f"フォントファイルが見つかりません: {self.font_path}")
+            self.font = ImageFont.load_default()
+
+        # 画像表示用ラベル
+        self.image_label = ttk.Label(self)
+        self.image_label.pack(fill=tk.BOTH, expand=True)
+
+        # ステータス表示ラベル
+        self.status_label = ttk.Label(self, text="笑顔を検出しています...", font=("Arial", 16))
+        self.status_label.pack(side=tk.BOTTOM, pady=10)
+
+        # フレームのリサイズに対応するためのバインド
+        self.bind("<Configure>", self.on_resize)
+
+        # フレームのサイズを保持
+        self.frame_width = self.winfo_width()
+        self.frame_height = self.winfo_height()
+
+        # フラグ: 現在キャプチャ中かどうか
+        self.is_capturing = False
+
+        # プレビュー更新開始
+        self.after(0, self.update_frame)
+
+    def on_resize(self, event):
+        """ウィンドウのサイズ変更に対応"""
+        self.frame_width = event.width
+        self.frame_height = event.height
+
+    def update_frame(self):
+        if getattr(self, 'stop_preview', False):
             return
 
-        window_name = 'Camera Preview - Smile Detection'
-        self.setup_window(window_name)
+        ret, frame = self.camera_handler.cap.read()
+        if not ret:
+            logging.error("フレームを取得できませんでした。")
+            self.after(100, self.update_frame)  # 少し待って再試行
+            return
 
-        logging.info("笑顔を検出中...")
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(gray_frame, 1.3, 5)
 
-        while True:
-            ret, frame = self.cap.read()
-            if not ret:
-                logging.error("フレームを取得できませんでした。")
-                break
+        smile_detected = False
 
-            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray_frame, 1.3, 5)
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+            roi_gray = gray_frame[y:y+h, x:x+w]
+            smiles = self.smile_cascade.detectMultiScale(roi_gray, 1.8, 20)
+            if len(smiles) > 0:
+                smile_detected = True
+                cv2.putText(frame, "Smile Detected!", (x, y - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                break  # 笑顔を検出したらループを抜ける
 
-            smile_detected = False
+        if smile_detected and not self.is_capturing:
+            self.is_capturing = True
+            self.status_label.config(text="笑顔が検出されました！写真を撮影します。")
+            # メッセージ表示後に写真撮影を開始（1秒後）
+            self.after(1000, self.capture_image)
 
-            for face in faces:
-                x, y, w, h = face
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        # OpenCV の BGR から RGB に変換
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame_rgb)
 
-                if self.detect_smile(gray_frame, face):
-                    smile_detected = True
-                    logging.info("笑顔が検出されました。カウントダウンを開始します。")
-                    break  # 笑顔を検出したらループを抜ける
+        # フレームのサイズに合わせて画像をリサイズ
+        img = img.resize((self.frame_width, self.frame_height), Image.ANTIALIAS)
 
-            if smile_detected:
-                self.countdown_and_capture(window_name)
-                # 写真を撮影した後も続ける場合は、以下の行をコメントアウトします
-                return  # 1枚の写真を撮ったら終了
+        # Pillow を使用して画像を Tkinter 用に変換
+        imgtk = ImageTk.PhotoImage(image=img)
+        self.image_label.imgtk = imgtk  # 参照を保持
+        self.image_label.configure(image=imgtk)
 
-            self.show_preview_with_overlay(window_name, frame)
+        # 次のフレーム更新をスケジュール
+        self.after(30, self.update_frame)  # 約33fps
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                logging.info("ユーザーによってキャプチャが中断されました。")
-                break
+    def capture_image(self):
+        ret, frame = self.camera_handler.cap.read()
+        if ret:
+            timestamp = get_timestamp()
+            filename = f"{timestamp}.jpg"
+            save_path = os.path.join(self.camera_handler.photo_directory, filename)
+            cv2.imwrite(save_path, frame)
+            logging.info(f"画像が保存されました: {save_path}")
 
-        self.cleanup(window_name)
+            # 撮影された画像のプレビュー表示（オプション）
+            self.preview_captured_image(frame)
 
-    def countdown_and_capture(self, window_name):
-        """カウントダウンを表示し、写真を撮影"""
-        start_time = time.time()
-        end_time = start_time + self.countdown_time
+            # メッセージを2秒後にリセット
+            self.after(2000, lambda: self.status_label.config(text="笑顔を検出しています..."))
+        else:
+            logging.error("画像のキャプチャに失敗しました。")
+            # メッセージをリセット
+            self.after(2000, lambda: self.status_label.config(text="笑顔を検出しています..."))
 
-        while time.time() < end_time:
-            ret, frame = self.cap.read()
-            if not ret:
-                logging.error("フレームを取得できませんでした。")
-                break
+        self.is_capturing = False  # キャプチャ完了
 
-            seconds_left = int(end_time - time.time()) + 1  # 残り秒数
+    def preview_captured_image(self, frame):
+        """撮影された画像を一時的に表示します"""
+        window = tk.Toplevel(self)
+        window.title("Captured Image")
 
-            overlay_text = f"{seconds_left}秒後に撮影します..."
-            self.show_preview_with_overlay(window_name, frame, overlay_text)
+        # OpenCV の BGR から RGB に変換
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(frame_rgb)
+        img = img.resize((400, 300), Image.ANTIALIAS)  # プレビュー用にリサイズ
+        imgtk = ImageTk.PhotoImage(image=img)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                logging.info("ユーザーによってカウントダウンが中断されました。")
-                return
+        label = ttk.Label(window, image=imgtk)
+        label.image = imgtk  # 参照を保持
+        label.pack()
 
-        # 写真を撮影
-        timestamp = get_timestamp()
-        filename = f"{timestamp}.jpg"
-        save_path = os.path.join(self.photo_directory, filename)
-        self.captured_frame = self.capture_image(save_path)
+        # 一定時間後にウィンドウを閉じる
+        window.after(3000, window.destroy)  # 3秒後に閉じる
 
-        # 撮影された画像のプレビュー表示
-        if self.captured_frame is not None:
-            self.preview_image(self.captured_frame)
+    def destroy(self):
+        self.stop_preview = True
+        self.camera_handler.cap.release()
+        super().destroy()
 
-    def setup_window(self, window_name):
-        """ウィンドウを設定"""
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(window_name, self.screen_width, self.screen_height)
-
-    def cleanup(self, window_name):
-        """カメラとウィンドウのリソースを解放"""
-        self.cap.release()
-        cv2.destroyAllWindows()
-        logging.info(f"{window_name} のウィンドウが閉じられました。")
 
 def main():
     # スクリプトのディレクトリを取得
     script_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # ロギングの設定を初期化
-    setup_logging(script_dir, log_file='debug.log')
+    # ログ設定を初期化
+    setup_logging(script_dir, log_file='smile_detection.log')
+    logging.debug("ログ設定を初期化しました。")
 
-    # config.yaml のパスを構築
+    # config.yaml のパスを指定
     config_path = os.path.join(script_dir, 'config.yaml')
 
-    if not os.path.exists(config_path):
-        logging.error(f"設定ファイルが見つかりません: {config_path}")
+    # 設定ファイルを読み込む
+    config = load_config(config_path)
+    if config is None:
+        logging.error("設定ファイルの読み込みに失敗しました。アプリケーションを終了します。")
         sys.exit(1)
 
-    # 設定ファイルをロード
+    # スライドショーの設定を取得
     try:
-        config = load_config(config_filename=config_path, env_filename='.env')
-    except Exception as e:
-        logging.error(f"設定ファイルの読み込みに失敗しました: {e}")
+        photo_directory = config['slideshow']['photos_directory']
+        interval = config['slideshow']['interval']
+        logging.debug(f"フォトディレクトリ: {photo_directory}")
+        logging.debug(f"スライドショーの間隔: {interval} ミリ秒")
+    except KeyError as e:
+        logging.error(f"設定ファイルに必要なキーが不足しています: {e}")
         sys.exit(1)
 
     # 写真保存ディレクトリを取得
-    photo_directory = config.get('slideshow', {}).get('photos_directory', 'photos')
     photo_directory = os.path.join(script_dir, photo_directory)
 
     # ディレクトリが存在しない場合は作成
-    os.makedirs(photo_directory, exist_ok=True)
-    logging.info(f"写真保存ディレクトリ: {photo_directory}")
+    try:
+        os.makedirs(photo_directory, exist_ok=True)
+        logging.info(f"写真保存ディレクトリ: {photo_directory}")
+    except Exception as e:
+        logging.error(f"写真保存ディレクトリの作成に失敗しました: {e}")
+        sys.exit(1)
 
     # カメラハンドラーのインスタンスを作成
     camera_config = config.get('camera', {})
-    camera_handler = SmileDetectionCameraHandler(
-        camera_index=camera_config.get('index', 0),
-        countdown_time=camera_config.get('countdown_time', 3),
-        preview_time=camera_config.get('preview_time', 3),
-        photo_directory=photo_directory
-    )
+    try:
+        camera_handler = SmileDetectionCameraHandler(
+            camera_index=camera_config.get('index', 0),
+            countdown_time=camera_config.get('countdown_time', 3),
+            preview_time=camera_config.get('preview_time', 3),
+            photo_directory=photo_directory
+        )
+    except Exception as e:
+        logging.error(f"カメラハンドラーの初期化に失敗しました: {e}")
+        sys.exit(1)
 
-    # 笑顔が検出されたら画像をキャプチャして保存
-    camera_handler.capture_image_on_smile()
+    # Tkinter アプリケーションを初期化
+    root = tk.Tk()
+    root.title("Smile Detection App")
+
+    # フルスクリーン設定（必要に応じて変更）
+    root.attributes('-fullscreen', True)
+    logging.debug("ウィンドウをフルスクリーンに設定しました。")
+
+    # SmileDetectionFrame を作成してパック
+    smile_detection_frame = SmileDetectionFrame(root, camera_handler)
+    smile_detection_frame.pack(fill=tk.BOTH, expand=True)
+
+    # キーボードイベントのバインド
+    root.bind("<Escape>", lambda e: root.destroy())  # Escapeキーで終了
+
+    # Tkinter のメインループを開始
+    try:
+        root.mainloop()
+    except Exception as e:
+        logging.error(f"アプリケーションの実行中にエラーが発生しました: {e}")
+    finally:
+        # リソースのクリーンアップ
+        smile_detection_frame.destroy()
+        logging.info("アプリケーションを終了しました。")
+
 
 if __name__ == "__main__":
     main()
