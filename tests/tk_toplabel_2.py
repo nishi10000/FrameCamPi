@@ -3,6 +3,8 @@ from tkinter import ttk
 import sys
 import os
 import logging
+import tkinter.messagebox as messagebox  # エラーメッセージ表示用
+
 # srcディレクトリをPythonのパスに追加
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
@@ -11,15 +13,16 @@ sys.path.insert(0, src_dir)
 
 from utils import get_screen_sizes, load_config, setup_logging
 from smile_detection import SmileDetectionFrame, SmileDetectionCameraHandler
-from custom import CustomFrame
-
-
+# from custom import CustomFrame  # カスタムモードを使用する場合は有効にしてください
+from photoframe_tkinter import PhotoFrame
 
 class View(tk.Frame):
-    def __init__(self, master=None, camera_handler=None, *args, **kwargs):
+    def __init__(self, master=None, camera_handler=None, photo_directory=None, interval=5000, *args, **kwargs):
         super().__init__(master, *args, **kwargs)
         self.master = master
         self.camera_handler = camera_handler
+        self.photo_directory = photo_directory
+        self.interval = interval
         self.count = 0
         self.pack(padx=20, pady=20)
 
@@ -28,9 +31,13 @@ class View(tk.Frame):
         mode_label.pack(pady=(0, 10))
 
         # モード選択のラジオボタン
-        self.mode_var = tk.StringVar(value="笑顔検出モード")
-        modes = [("笑顔検出モード", "笑顔検出モード"), ("カスタムモード", "カスタムモード")]
-        
+        self.mode_var = tk.StringVar(value="smile_detection")
+        modes = [
+            ("笑顔検出モード", "smile_detection"),
+            ("カスタムモード", "custom"),
+            ("写真スライドショーモード", "photo_slideshow")  # 新モード
+        ]
+
         for text, mode in modes:
             rb = ttk.Radiobutton(self, text=text, variable=self.mode_var, value=mode)
             rb.pack(anchor=tk.W)
@@ -43,6 +50,7 @@ class View(tk.Frame):
         selected_mode = self.mode_var.get()
         if not selected_mode:
             logging.warning("モードが選択されていません。")
+            messagebox.showwarning("警告", "モードが選択されていません。")
             return
 
         self.count += 1
@@ -52,15 +60,22 @@ class View(tk.Frame):
         new_window.geometry("800x600")  # 必要に応じてサイズを調整
 
         # 選択されたモードに応じてフレームを作成
-        if selected_mode == "笑顔検出モード":
+        if selected_mode == "smile_detection":
             mode_frame = SmileDetectionFrame(new_window, self.camera_handler)
-        elif selected_mode == "カスタムモード":
-            mode_frame = CustomFrame(new_window, self.camera_handler)
+        elif selected_mode == "custom":
+            # カスタムモードを使用する場合は以下のコメントを解除してください
+            # mode_frame = CustomFrame(new_window, self.camera_handler)
+            mode_frame = None  # カスタムモードを使用しない場合
+            logging.info("カスタムモードは現在サポートされていません。")
+        elif selected_mode == "photo_slideshow":
+            mode_frame = PhotoFrame(new_window, photo_directory=self.photo_directory, interval=self.interval, controller=None)
         else:
             logging.error(f"未対応のモードが選択されました: {selected_mode}")
+            messagebox.showerror("エラー", f"未対応のモードが選択されました: {selected_mode}")
             return
 
-        mode_frame.pack(fill=tk.BOTH, expand=True)
+        if mode_frame:
+            mode_frame.pack(fill=tk.BOTH, expand=True)
 
 def main():
     # ログ設定を初期化
@@ -74,6 +89,7 @@ def main():
     config = load_config(config_path)
     if config is None:
         logging.error("設定ファイルの読み込みに失敗しました。アプリケーションを終了します。")
+        messagebox.showerror("エラー", "設定ファイルの読み込みに失敗しました。アプリケーションを終了します。")
         sys.exit(1)
 
     # スライドショーの設定を取得
@@ -84,6 +100,7 @@ def main():
         logging.debug(f"スライドショーの間隔: {interval} ミリ秒")
     except KeyError as e:
         logging.error(f"設定ファイルに必要なキーが不足しています: {e}")
+        messagebox.showerror("エラー", f"設定ファイルに必要なキーが不足しています: {e}")
         sys.exit(1)
 
     # 写真保存ディレクトリを取得
@@ -95,6 +112,7 @@ def main():
         logging.info(f"写真保存ディレクトリ: {photo_directory}")
     except Exception as e:
         logging.error(f"写真保存ディレクトリの作成に失敗しました: {e}")
+        messagebox.showerror("エラー", f"写真保存ディレクトリの作成に失敗しました: {e}")
         sys.exit(1)
 
     # カメラハンドラーのインスタンスを作成
@@ -108,6 +126,7 @@ def main():
         )
     except Exception as e:
         logging.error(f"カメラハンドラーの初期化に失敗しました: {e}")
+        messagebox.showerror("エラー", f"カメラハンドラーの初期化に失敗しました: {e}")
         sys.exit(1)
 
     # Tkinter アプリケーションを初期化
@@ -115,8 +134,8 @@ def main():
     root.title("Smile Detection App")
     root.geometry("400x200")  # メインウィンドウのサイズを調整
 
-    # View クラスのインスタンスを作成し、カメラハンドラーを渡す
-    view = View(root, camera_handler=camera_handler)
+    # View クラスのインスタンスを作成し、カメラハンドラーとスライドショー設定を渡す
+    view = View(root, camera_handler=camera_handler, photo_directory=photo_directory, interval=interval)
     view.pack(fill=tk.BOTH, expand=True)
 
     # キーボードイベントのバインド
@@ -135,6 +154,7 @@ def main():
         root.mainloop()
     except Exception as e:
         logging.error(f"アプリケーションの実行中にエラーが発生しました: {e}")
+        messagebox.showerror("エラー", f"アプリケーションの実行中にエラーが発生しました: {e}")
     finally:
         # リソースのクリーンアップ
         camera_handler.release_camera()
