@@ -8,12 +8,12 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
 src_dir = os.path.join(parent_dir, 'src')
 sys.path.insert(0, src_dir)
-from utils import get_screen_sizes
-from smile_detection import SmileDetectionFrame,SmileDetectionCameraHandler
-from photo_capture import CameraHandler
-# main.py
-from utils import load_config, setup_logging
-from custom import CustomFrame  # カスタムフレームをインポート
+
+from utils import get_screen_sizes, load_config, setup_logging
+from smile_detection import SmileDetectionFrame, SmileDetectionCameraHandler
+from custom import CustomFrame
+
+
 
 class View(tk.Frame):
     def __init__(self, master=None, camera_handler=None, *args, **kwargs):
