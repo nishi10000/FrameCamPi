@@ -7,9 +7,10 @@ import logging
 from utils import get_screen_sizes, setup_logging, load_config
 
 class PhotoFrame(tk.Frame):
-    def __init__(self, parent, photo_directory, interval=5000):
+    def __init__(self, parent, photo_directory, interval=5000,controller=None):
         super().__init__(parent)
         self.parent = parent
+        self.controller = controller  # コントローラーを保持
         self.photo_directory = photo_directory
         self.interval = interval  # ミリ秒
         self.photos = self.load_photos()

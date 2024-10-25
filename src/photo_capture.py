@@ -32,6 +32,12 @@ class CameraHandler:
             logging.error(f"カメラの初期化中にエラーが発生しました: {e}")
             return False
 
+    def release_camera(self):
+        if self.cap is not None:
+            self.cap.release()
+            self.cap = None
+            logging.info("カメラをリリースしました。")
+
     def start_countdown(self, start_time):
         """カウントダウンの残り時間を計算します。"""
         return int(start_time + self.countdown_time - time.time())
