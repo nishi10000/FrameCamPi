@@ -154,6 +154,7 @@ def main():
         # リソースのクリーンアップ
         camera_handler.release_camera()
         logging.info("アプリケーションを終了しました。")
+    # TODO:ここで音声認識を行い、画面を開いたり、閉じたりする。
 
 if __name__ == "__main__":
     main()
