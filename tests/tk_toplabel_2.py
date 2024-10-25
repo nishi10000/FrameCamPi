@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 import sys
 import os
 import logging
@@ -12,6 +13,7 @@ from smile_detection import SmileDetectionFrame,SmileDetectionCameraHandler
 from photo_capture import CameraHandler
 # main.py
 from utils import load_config, setup_logging
+from custom import CustomFrame  # カスタムフレームをインポート
 
 class View(tk.Frame):
     def __init__(self, master=None, camera_handler=None, *args, **kwargs):
@@ -21,20 +23,44 @@ class View(tk.Frame):
         self.count = 0
         self.pack(padx=20, pady=20)
 
-        # ボタンを作成して配置
-        open_button = tk.Button(self, text="Open Smile Detection Window", command=self.new_window)
-        open_button.pack(side="top", fill="both", expand=True, padx=10, pady=10)
+        # モード選択のラベル
+        mode_label = ttk.Label(self, text="モードを選択してください:", font=("Arial", 14))
+        mode_label.pack(pady=(0, 10))
 
-    def new_window(self):
+        # モード選択のラジオボタン
+        self.mode_var = tk.StringVar(value="笑顔検出モード")
+        modes = [("笑顔検出モード", "笑顔検出モード"), ("カスタムモード", "カスタムモード")]
+        
+        for text, mode in modes:
+            rb = ttk.Radiobutton(self, text=text, variable=self.mode_var, value=mode)
+            rb.pack(anchor=tk.W)
+
+        # 開始ボタン
+        open_button = tk.Button(self, text="選択したモードを開く", command=self.open_mode_window)
+        open_button.pack(side="top", fill="both", expand=True, padx=10, pady=20)
+
+    def open_mode_window(self):
+        selected_mode = self.mode_var.get()
+        if not selected_mode:
+            logging.warning("モードが選択されていません。")
+            return
+
         self.count += 1
-        window_title = f"Smile Detection Window #{self.count}"
+        window_title = f"{selected_mode} #{self.count}"
         new_window = tk.Toplevel(self.master)
         new_window.title(window_title)
         new_window.geometry("800x600")  # 必要に応じてサイズを調整
 
-        # SmileDetectionFrameを新しいウィンドウに配置
-        smile_frame = SmileDetectionFrame(new_window, self.camera_handler)
-        smile_frame.pack(fill=tk.BOTH, expand=True)
+        # 選択されたモードに応じてフレームを作成
+        if selected_mode == "笑顔検出モード":
+            mode_frame = SmileDetectionFrame(new_window, self.camera_handler)
+        elif selected_mode == "カスタムモード":
+            mode_frame = CustomFrame(new_window, self.camera_handler)
+        else:
+            logging.error(f"未対応のモードが選択されました: {selected_mode}")
+            return
+
+        mode_frame.pack(fill=tk.BOTH, expand=True)
 
 def main():
     # ログ設定を初期化
@@ -87,7 +113,7 @@ def main():
     # Tkinter アプリケーションを初期化
     root = tk.Tk()
     root.title("Smile Detection App")
-    root.geometry("300x150")  # メインウィンドウのサイズを調整
+    root.geometry("400x200")  # メインウィンドウのサイズを調整
 
     # View クラスのインスタンスを作成し、カメラハンドラーを渡す
     view = View(root, camera_handler=camera_handler)
