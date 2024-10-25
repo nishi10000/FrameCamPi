@@ -13,7 +13,6 @@ sys.path.insert(0, src_dir)
 
 from utils import get_screen_sizes, load_config, setup_logging
 from smile_detection import SmileDetectionFrame, SmileDetectionCameraHandler
-# from custom import CustomFrame  # カスタムモードを使用する場合は有効にしてください
 from photoframe_tkinter import PhotoFrame
 
 class View(tk.Frame):
@@ -34,9 +33,9 @@ class View(tk.Frame):
         self.mode_var = tk.StringVar(value="smile_detection")
         modes = [
             ("笑顔検出モード", "smile_detection"),
-            ("カスタムモード", "custom"),
             ("写真スライドショーモード", "photo_slideshow")  # 新モード
         ]
+
 
         for text, mode in modes:
             rb = ttk.Radiobutton(self, text=text, variable=self.mode_var, value=mode)
@@ -62,11 +61,6 @@ class View(tk.Frame):
         # 選択されたモードに応じてフレームを作成
         if selected_mode == "smile_detection":
             mode_frame = SmileDetectionFrame(new_window, self.camera_handler)
-        elif selected_mode == "custom":
-            # カスタムモードを使用する場合は以下のコメントを解除してください
-            # mode_frame = CustomFrame(new_window, self.camera_handler)
-            mode_frame = None  # カスタムモードを使用しない場合
-            logging.info("カスタムモードは現在サポートされていません。")
         elif selected_mode == "photo_slideshow":
             mode_frame = PhotoFrame(new_window, photo_directory=self.photo_directory, interval=self.interval, controller=None)
         else:
@@ -76,6 +70,7 @@ class View(tk.Frame):
 
         if mode_frame:
             mode_frame.pack(fill=tk.BOTH, expand=True)
+
 
 def main():
     # ログ設定を初期化
