@@ -162,7 +162,7 @@ class SmileDetectionFrame(tk.Frame):
         self.frame_height = event.height
 
     def update_frame(self):
-        if self.stop_preview:
+        if getattr(self, 'stop_preview', False):
             return
 
         try:
@@ -262,8 +262,8 @@ class SmileDetectionFrame(tk.Frame):
     def destroy(self):
         self.stop_preview = True
         self.camera_handler.release_camera()
+        logging.info("カメラをリリースしました。")
         super().destroy()
-
 
 def main():
     # スクリプトのディレクトリを取得

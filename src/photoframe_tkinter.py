@@ -53,7 +53,16 @@ class PhotoFrame(tk.Frame):
         self.top_level.attributes('-fullscreen', False)
         if self.controller:
             self.controller.show_frame("MainMenu")
-    
+
+    def destroy(self):
+        # スライドショーの更新を停止
+        if self.after_id:
+            self.after_cancel(self.after_id)
+            self.after_id = None
+            logging.debug("スライドショーの更新を停止しました。")
+        # スーパークラスの destroy を呼び出す
+        super().destroy()
+
     def load_photos(self):
         supported_formats = ('.png', '.jpg', '.jpeg', '.gif', '.bmp')
         if not os.path.exists(self.photo_directory):
