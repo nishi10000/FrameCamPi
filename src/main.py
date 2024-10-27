@@ -1,73 +1,87 @@
-# main.py - Entry point of the FrameCamPi project
-import threading
-import time
-from utils import load_config, setup_logging
-from photoframe_tkinter import PhotoFrame
-from voice_commands import listen_for_commands, process_command
-from smile_detection import detect_smile_and_capture
-from web_app import run_web_app
-from photo_capture import CameraHandler  # CameraHandlerをインポート
+import tkinter as tk
+import sys
 import os
 import logging
-import sys
-from utils import get_timestamp
+import tkinter.messagebox as messagebox  # エラーメッセージ表示用
 
-def command_listener(config):
-    """音声コマンドをリスニングし、コマンドに応じた処理を実行する"""
-    while True:
-        command = listen_for_commands()
-        if command:
-            process_command(command, config)
+# srcディレクトリをPythonのパスに追加
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir, '..'))
+src_dir = os.path.join(parent_dir, 'src')
+sys.path.insert(0, src_dir)
 
-def monitor_activity(config):
-    """ユーザーのアクティビティを監視し、無操作時にフォトフレームモードに切り替える"""
-    timeout = config['slideshow']['timeout']
-    last_activity = time.time()
+from utils import get_screen_sizes, load_config, setup_logging
+from smile_detection import SmileDetectionFrame, SmileDetectionCameraHandler
+from photoframe_tkinter import PhotoFrame
 
-    def reset_timer():
-        nonlocal last_activity
-        last_activity = time.time()
+class View(tk.Frame):
+    def __init__(self, master=None, camera_handler=None, photo_directory=None, interval=5000, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.master = master
+        self.camera_handler = camera_handler
+        self.photo_directory = photo_directory
+        self.interval = interval
+        self.count = 0
+        self.pack(fill=tk.BOTH, expand=True)
+        self.current_frame = None  # 現在のフレームを保持
 
-    # アクティビティのリセット方法（例：キーボードやマウスのイベント）を実装する必要があります。
-    # ここでは仮に音声コマンドリスナーがアクティビティの一部とします。
-    while True:
-        current_time = time.time()
-        if current_time - last_activity > timeout:
-            logging.info("無操作時間が設定値を超えたため、フォトフレームモードに切り替えます。")
-            # フォトフレームモードをトリガーするロジックを実装
-            # 例: イベントを発火する、フラグをセットするなど
-            last_activity = current_time  # タイマーをリセット
-        time.sleep(1)
+        # コンテナフレームを作成
+        self.container = tk.Frame(self.master)
+        self.container.pack(fill=tk.BOTH, expand=True)
+
+    def open_mode_window(self, selected_mode):
+        if not selected_mode:
+            logging.warning("モードが選択されていません。")
+            messagebox.showwarning("警告", "モードが選択されていません。")
+            return
+
+        self.count += 1
+
+        # 現在のフレームを削除
+        if self.current_frame:
+            self.current_frame.destroy()
+
+        # 選択されたモードに応じてフレームを作成
+        if selected_mode == "smile_detection":
+            self.current_frame = SmileDetectionFrame(self.container, self.camera_handler)
+        elif selected_mode == "photo_slideshow":
+            self.current_frame = PhotoFrame(self.container, photo_directory=self.photo_directory, interval=self.interval, controller=None)
+        else:
+            logging.error(f"未対応のモードが選択されました: {selected_mode}")
+            messagebox.showerror("エラー", f"未対応のモードが選択されました: {selected_mode}")
+            return
+
+        if self.current_frame:
+            self.current_frame.pack(fill=tk.BOTH, expand=True)
 
 def main():
-    """システムのエントリーポイント。設定を読み込み、各スレッドを開始する。"""
-    # スクリプトのディレクトリを取得
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    # ログ設定を初期化
+    setup_logging(src_dir, log_file='smile_detection.log')
+    logging.debug("ログ設定を初期化しました。")
 
-    # ロギングの設定を初期化
-    setup_logging(script_dir, log_file='debug.log')
+    # config.yaml のパスを指定
+    config_path = os.path.join(src_dir, 'config.yaml')
 
-    # config.yaml のパスを構築
-    config_path = os.path.join(script_dir, 'config.yaml')  # config.yaml が src ディレクトリ内にある場合
-
-    if not os.path.exists(config_path):
-        logging.error(f"設定ファイルが見つかりません: {config_path}")
+    # 設定ファイルを読み込む
+    config = load_config(config_path)
+    if config is None:
+        logging.error("設定ファイルの読み込みに失敗しました。アプリケーションを終了します。")
+        messagebox.showerror("エラー", "設定ファイルの読み込みに失敗しました。アプリケーションを終了します。")
         sys.exit(1)
 
-    # 設定ファイルをロード
+    # スライドショーの設定を取得
     try:
-        config = load_config(config_filename='config.yaml', env_filename='.env')
-    except Exception as e:
-        logging.error(f"設定ファイルの読み込みに失敗しました: {e}")
+        photo_directory = config['slideshow']['photos_directory']
+        interval = config['slideshow']['interval']
+        logging.debug(f"フォトディレクトリ: {photo_directory}")
+        logging.debug(f"スライドショーの間隔: {interval} ミリ秒")
+    except KeyError as e:
+        logging.error(f"設定ファイルに必要なキーが不足しています: {e}")
+        messagebox.showerror("エラー", f"設定ファイルに必要なキーが不足しています: {e}")
         sys.exit(1)
-
-    timestamp = get_timestamp()
 
     # 写真保存ディレクトリを取得
-    photo_directory = config.get('slideshow', {}).get('photos_directory', 'photos')
-
-    # ディレクトリが相対パスの場合、スクリプトのディレクトリを基準にする
-    photo_directory = os.path.join(script_dir, photo_directory)
+    photo_directory = os.path.join(src_dir, photo_directory)
 
     # ディレクトリが存在しない場合は作成
     try:
@@ -75,53 +89,58 @@ def main():
         logging.info(f"写真保存ディレクトリ: {photo_directory}")
     except Exception as e:
         logging.error(f"写真保存ディレクトリの作成に失敗しました: {e}")
+        messagebox.showerror("エラー", f"写真保存ディレクトリの作成に失敗しました: {e}")
         sys.exit(1)
-
-    # タイムスタンプ付きのファイル名を作成
-    filename = f"{timestamp}.jpg"
-    file_path = os.path.join(photo_directory, filename)
 
     # カメラハンドラーのインスタンスを作成
     camera_config = config.get('camera', {})
-    camera_handler = CameraHandler(
-        camera_index=camera_config.get('index', 0),
-        countdown_time=camera_config.get('countdown_time', 3),
-        preview_time=camera_config.get('preview_time', 3),
-        photo_directory=photo_directory
-    )
+    try:
+        camera_handler = SmileDetectionCameraHandler(
+            camera_index=camera_config.get('index', 0),
+            countdown_time=camera_config.get('countdown_time', 3),
+            preview_time=camera_config.get('preview_time', 3),
+            photo_directory=photo_directory
+        )
+    except Exception as e:
+        logging.error(f"カメラハンドラーの初期化に失敗しました: {e}")
+        messagebox.showerror("エラー", f"カメラハンドラーの初期化に失敗しました: {e}")
+        sys.exit(1)
 
-    # カメラキャプチャ機能を別スレッドで実行
-    camera_thread = threading.Thread(
-        target=camera_handler.capture_image_with_resized_window,
-        args=(file_path,),
-        daemon=True
-    )
-    camera_thread.start()
+    # Tkinter アプリケーションを初期化
+    root = tk.Tk()
+    root.title("Smile Detection App")
 
-    # 音声コマンドリスニングのスレッド開始
-    command_thread = threading.Thread(target=command_listener, args=(config,), daemon=True)
-    command_thread.start()
+    # 全画面表示に設定
+    root.attributes('-fullscreen', True)
 
-    # アクティビティ監視のスレッド開始
-    monitor_thread = threading.Thread(target=monitor_activity, args=(config,), daemon=True)
-    monitor_thread.start()
+    # View クラスのインスタンスを作成し、カメラハンドラーとスライドショー設定を渡す
+    view = View(root, camera_handler=camera_handler, photo_directory=photo_directory, interval=interval)
+    view.pack(fill=tk.BOTH, expand=True)
 
-    # 笑顔検出のスレッド開始（オプション）
-    smile_detection_thread = threading.Thread(
-        target=detect_smile_and_capture, 
-        args=(0, config['slideshow']['photos_directory']), 
-        daemon=True
-    )
-    smile_detection_thread.start()
+    # キーボードイベントのバインド
+    root.bind("<Escape>", lambda e: root.destroy())  # Escapeキーで終了
 
-    # ウェブアプリケーションのスレッド開始（オプション）
-    web_app_thread = threading.Thread(target=run_web_app, args=(config,), daemon=True)
-    web_app_thread.start()
+    # モード変更用の関数
+    def change_mode(mode):
+        view.open_mode_window(mode)
 
-    # Tkinterのメインループをメインスレッドで実行
-    interval = config['slideshow']['interval']
-    app = PhotoFrame(photo_directory, interval)
-    app.mainloop()
+    # キーボードイベントのバインド
+    root.bind("1", lambda e: change_mode("smile_detection"))  # 1キーでモードを変更
+    root.bind("2", lambda e: change_mode("photo_slideshow"))  # 2キーでモードを変更
+
+    # デフォルトのモードを設定
+    view.open_mode_window("smile_detection")
+
+    # Tkinter のメインループを開始
+    try:
+        root.mainloop()
+    except Exception as e:
+        logging.error(f"アプリケーションの実行中にエラーが発生しました: {e}")
+        messagebox.showerror("エラー", f"アプリケーションの実行中にエラーが発生しました: {e}")
+    finally:
+        # リソースのクリーンアップ
+        camera_handler.release_camera()
+        logging.info("アプリケーションを終了しました。")
 
 if __name__ == "__main__":
     main()
