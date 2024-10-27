@@ -7,7 +7,7 @@ import logging
 from utils import get_screen_sizes, setup_logging, load_config
 
 class PhotoFrame(tk.Frame):
-    def __init__(self, parent, photo_directory, interval=5000,controller=None):
+    def __init__(self, parent, photo_directory, interval=5000, controller=None):
         super().__init__(parent)
         self.parent = parent
         self.controller = controller  # コントローラーを保持
@@ -16,33 +16,31 @@ class PhotoFrame(tk.Frame):
         self.photos = self.load_photos()
         self.current = 0
 
+        # トップレベルウィンドウを取得
+        self.top_level = self.winfo_toplevel()
+
         # 実際の画面サイズをTkinterから取得
-        screen_width = self.parent.winfo_screenwidth()
-        screen_height = self.parent.winfo_screenheight()
-        print(f"実際の画面サイズを取得しました: {screen_width}x{screen_height}")
+        screen_width = self.top_level.winfo_screenwidth()
+        screen_height = self.top_level.winfo_screenheight()
         logging.debug(f"実際の画面サイズを取得しました: {screen_width}x{screen_height}")
 
         # フルスクリーン設定
-        self.parent.attributes('-fullscreen', True)
-        print("ウィンドウをフルスクリーンに設定しました。")
+        self.top_level.attributes('-fullscreen', True)
         logging.debug("ウィンドウをフルスクリーンに設定しました。")
 
         # Canvasの作成とパッキング
         self.canvas = tk.Canvas(self, bg='black', highlightthickness=0, width=screen_width, height=screen_height)
         self.canvas.pack(fill=tk.BOTH, expand=True)
-        print(f"Canvasを作成し、フレームにパックしました。 サイズ: {screen_width}x{screen_height}")
         logging.debug(f"Canvasを作成し、フレームにパックしました。 サイズ: {screen_width}x{screen_height}")
 
         # Canvasのサイズを取得（確認用）
         self.update_idletasks()  # Canvasのサイズを確定
         canvas_width = self.canvas.winfo_width()
         canvas_height = self.canvas.winfo_height()
-        print(f"Canvasのサイズ: {canvas_width}x{canvas_height}")
         logging.debug(f"Canvasのサイズ: {canvas_width}x{canvas_height}")
 
         # イベントバインド
-        self.parent.bind("<Escape>", lambda e: self.parent.destroy())  # Escapeキーで終了
-        print("Escapeキーをバインドしました。")
+        self.top_level.bind("<Escape>", self.exit_fullscreen)
         logging.debug("Escapeキーをバインドしました。")
 
         # 黒い背景画像を作成
@@ -51,6 +49,11 @@ class PhotoFrame(tk.Frame):
         # 写真表示開始
         self.show_photo()
 
+    def exit_fullscreen(self, event=None):
+        self.top_level.attributes('-fullscreen', False)
+        if self.controller:
+            self.controller.show_frame("MainMenu")
+    
     def load_photos(self):
         supported_formats = ('.png', '.jpg', '.jpeg', '.gif', '.bmp')
         if not os.path.exists(self.photo_directory):
