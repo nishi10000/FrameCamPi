@@ -81,29 +81,30 @@ class CameraHandler:
         if not self.initialize_camera():
             return
 
-        window_name = 'Camera Preview - Countdown'
+        window_name = 'カメラプレビュー - カウントダウン'
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(window_name, self.screen_width, self.screen_height)
 
         start_time = time.time()
 
-        while True:
-            remaining_time = self.start_countdown(start_time)
-            if remaining_time > 0:
-                frame = self.show_camera_preview(window_name, str(remaining_time))
-            else:
-                self.captured_frame = self.capture_image(save_path)
-                break
+        try:
+            while True:
+                remaining_time = self.start_countdown(start_time)
+                if remaining_time > 0:
+                    frame = self.show_camera_preview(window_name, str(remaining_time))
+                else:
+                    self.captured_frame = self.capture_image(save_path)
+                    break
 
-            if frame is None:
-                break
+                if frame is None:
+                    break
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                logging.info("ユーザーによってキャプチャが中断されました。")
-                break
-
-        self.cap.release()
-        cv2.destroyAllWindows()
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    logging.info("ユーザーによってキャプチャが中断されました。")
+                    break
+        finally:
+            self.release_camera()
+            cv2.destroyAllWindows()
 
         # 撮影された画像のプレビュー表示
         if self.captured_frame is not None:
@@ -113,40 +114,44 @@ class CameraHandler:
         """
         撮影された画像をプレビュー表示します。
         """
-        window_name = 'Captured Image'
+        window_name = '撮影画像プレビュー'
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(window_name, self.screen_width, self.screen_height)
 
         start_time = time.time()
-        while time.time() - start_time < self.preview_time:
-            cv2.imshow(window_name, frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                logging.info("ユーザーによってプレビューが中断されました。")
-                break
-        logging.info(f"プレビューが終了しました ({self.preview_time} 秒後)。")
-        cv2.destroyWindow(window_name)
+        try:
+            while time.time() - start_time < self.preview_time:
+                cv2.imshow(window_name, frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    logging.info("ユーザーによってプレビューが中断されました。")
+                    break
+            logging.info(f"プレビューが終了しました ({self.preview_time} 秒後)。")
+        finally:
+            cv2.destroyWindow(window_name)
 
     def start_camera_preview(self):
         """カメラからのリアルタイム映像をプレビュー表示します。"""
         if not self.initialize_camera():
             return
 
-        window_name = 'Camera Preview'
+        window_name = 'カメラプレビュー'
         cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
         cv2.resizeWindow(window_name, self.screen_width, self.screen_height)
 
         logging.info("カメラプレビューを開始します。'q' キーで終了します。")
-        while True:
-            frame = self.show_camera_preview(window_name)
-            if frame is None:
-                break
+        try:
+            while True:
+                frame = self.show_camera_preview(window_name)
+                if frame is None:
+                    break
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                logging.info("ユーザーによってプレビューが終了されました。")
-                break
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    logging.info("ユーザーによってプレビューが終了されました。")
+                    break
+        finally:
+            self.release_camera()
+            cv2.destroyAllWindows()
 
-        self.cap.release()
-        cv2.destroyAllWindows()
 def main():
     # スクリプトのディレクトリを取得
     script_dir = os.path.dirname(os.path.abspath(__file__))
