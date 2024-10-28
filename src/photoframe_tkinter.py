@@ -1,5 +1,3 @@
-# photoframe_tkinter.py
-
 import tkinter as tk
 from PIL import Image, ImageTk
 import os
@@ -15,6 +13,7 @@ class PhotoFrame(tk.Frame):
         self.interval = interval  # ミリ秒
         self.photos = self.load_photos()
         self.current = 0
+        self.after_id = None  # after_idを初期化
 
         # トップレベルウィンドウを取得
         self.top_level = self.winfo_toplevel()
@@ -53,6 +52,8 @@ class PhotoFrame(tk.Frame):
         self.top_level.attributes('-fullscreen', False)
         if self.controller:
             self.controller.show_frame("MainMenu")
+        else:
+            self.top_level.destroy()  # ウィンドウを破棄
 
     def destroy(self):
         # スライドショーの更新を停止
@@ -126,8 +127,8 @@ class PhotoFrame(tk.Frame):
             print(f"リサイズ後の画像サイズ: {new_width}x{new_height}")
             logging.debug(f"リサイズ後の画像サイズ: {new_width}x{new_height}")
 
-            # 画像をリサイズ（Resamplingを使用せずに直接フィルターを指定）
-            img = img.resize((new_width, new_height), Image.LANCZOS)  # DeprecationWarningあり
+            # 画像をリサイズ
+            img = img.resize((new_width, new_height), Image.LANCZOS)
             print("画像をリサイズしました。")
             logging.debug("画像をリサイズしました。")
 
@@ -162,7 +163,8 @@ class PhotoFrame(tk.Frame):
         print(f"次の写真に切り替えます: インデックス={self.current}")
         logging.debug(f"次の写真に切り替えます: インデックス={self.current}")
 
-        self.after(self.interval, self.show_photo)
+        # after_idにタイマーIDを保存
+        self.after_id = self.after(self.interval, self.show_photo)
 
 # テスト用の実行例
 if __name__ == "__main__":
@@ -204,6 +206,10 @@ if __name__ == "__main__":
         app = PhotoFrame(root, photo_directory, interval)
         app.pack(fill=tk.BOTH, expand=True)
         root.deiconify()  # ルートウィンドウを表示
+
+        # 'q'キーと'Esc'キーでアプリケーションを終了
+        root.bind('q', lambda e: root.destroy())
+        root.bind('<Escape>', lambda e: root.destroy())
 
         # メインループを開始
         try:
