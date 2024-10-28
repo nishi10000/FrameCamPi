@@ -172,27 +172,28 @@ class SmileDetectionFrame(tk.Frame):
                 self.after(100, self.update_frame)  # 少し待って再試行
                 return
 
-            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            faces = self.face_cascade.detectMultiScale(gray_frame, 1.3, 5)
+            if not self.is_capturing:
+                gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                faces = self.face_cascade.detectMultiScale(gray_frame, 1.3, 5)
 
-            smile_detected = False
+                smile_detected = False
 
-            for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                roi_gray = gray_frame[y:y+h, x:x+w]
-                smiles = self.smile_cascade.detectMultiScale(roi_gray, 1.8, 20)
-                if len(smiles) > 0:
-                    smile_detected = True
-                    text_position = (x, y - 10)
-                    text = "笑顔を検出!"
-                    frame = put_japanese_text(frame, text, text_position, self.font, color=(0, 255, 0))
-                    break  # 笑顔を検出したらループを抜ける
+                for (x, y, w, h) in faces:
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                    roi_gray = gray_frame[y:y + h, x:x + w]
+                    smiles = self.smile_cascade.detectMultiScale(roi_gray, 1.8, 20)
+                    if len(smiles) > 0:
+                        smile_detected = True
+                        text_position = (x, y - 10)
+                        text = "笑顔を検出!"
+                        frame = put_japanese_text(frame, text, text_position, self.font, color=(0, 255, 0))
+                        break  # 笑顔を検出したらループを抜ける
 
-            if smile_detected and not self.is_capturing:
-                self.is_capturing = True
-                self.status_label.config(text="笑顔が検出されました！写真を撮影します。")
-                # メッセージ表示後に写真撮影を開始（1秒後）
-                self.after(1000, self.capture_image)
+                if smile_detected:
+                    self.is_capturing = True
+                    self.status_label.config(text="笑顔が検出されました！写真を撮影します。")
+                    # メッセージ表示後に写真撮影を開始（1秒後）
+                    self.after(1000, self.capture_image)
 
             # OpenCV の BGR から RGB に変換
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -212,7 +213,6 @@ class SmileDetectionFrame(tk.Frame):
         # 次のフレーム更新をスケジュール
         self.after(30, self.update_frame)  # 約33fps
 
-
     def capture_image(self):
         try:
             ret, frame = self.camera_handler.cap.read()
@@ -226,17 +226,23 @@ class SmileDetectionFrame(tk.Frame):
                 # 撮影された画像のプレビュー表示（オプション）
                 self.preview_captured_image(frame)
 
-                # メッセージを2秒後にリセット
-                self.after(2000, lambda: self.status_label.config(text="笑顔を検出しています..."))
+                # インターバル中のメッセージを表示
+                self.status_label.config(text="撮影完了！3秒間お待ちください。")
+
             else:
                 logging.error("画像のキャプチャに失敗しました。")
-                # メッセージをリセット
                 self.after(2000, lambda: self.status_label.config(text="笑顔を検出しています..."))
         except Exception as e:
             logging.error(f"画像のキャプチャ中にエラーが発生しました: {e}")
             self.after(2000, lambda: self.status_label.config(text="笑顔を検出しています..."))
         finally:
-            self.is_capturing = False  # キャプチャ完了
+            # 3秒後に笑顔検出を再開
+            self.after(3000, self.resume_detection)
+
+    def resume_detection(self):
+        """笑顔検出を再開します"""
+        self.is_capturing = False
+        self.status_label.config(text="笑顔を検出しています...")
 
     def preview_captured_image(self, frame):
         """撮影された画像を一時的に表示します"""
